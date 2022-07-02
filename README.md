@@ -1,6 +1,6 @@
 # blindschleiche
 
-Misc sequence tools in python. These tools a small things which I have at some point needed to write because I couldn't find a solution I liked. This is in no way a comprehensive toolkit. It is a companion to [seqhax](https://github.com/kdm9/seqhax), execpt that seqhax is written in C/C++ and generally contains tools to handle very large datasets where performance is somewhat important. This is all in python for ease of development, and so typically these tools perform less data- or compute-intensive tasks.
+Misc sequence tools in python. These tools are small things which I have at some point needed to write because I couldn't find a solution I liked. This is in no way a comprehensive toolkit. It is a companion to [seqhax](https://github.com/kdm9/seqhax), execpt that seqhax is written in C/C++ and generally contains tools to handle very large datasets where performance is somewhat important. This is all in python for ease of development, and so typically these tools perform less data- or compute-intensive tasks.
 
 ## Install
 
