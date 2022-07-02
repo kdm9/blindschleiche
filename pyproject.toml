@@ -1,0 +1,25 @@
+[project]
+name = "blindschleiche"
+description = "Miscelanelous python-based bioinformatics utils"
+authors = [
+    { name = "Dr. K. D. Murray", email = "info@gekkonid.com" }
+]
+requires_python = ">=3.7"
+dependencies = [
+    "biopython",
+]
+dynamic = [
+    "version",
+]
+
+
+[project.scripts]
+bls = "bls:main"
+
+
+[tool.flit.module]
+name = "bls"
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
