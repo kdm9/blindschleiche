@@ -5,7 +5,9 @@ Misc sequence tools in python. These tools a small things which I have at some p
 ## Install
 
 ```
-pip install git+https://github.com/kdm9/blindschleiche.git
+pip install blindschleiche
+# or for the current main branch:
+# pip install git+https://github.com/kdm9/blindschleiche.git
 ```
 
 ## Usage
