@@ -27,6 +27,7 @@ def telogrep_main(argv=None):
     )
     args = ap.parse_args(argv)
 
+    # These are taken from https://dx.doi.org/10.1093/gbe/evt019
     tel_forward = "C{2,4}T{1,2}A{1,3}"
     tel_reverse = "T{1,3}A{1,2}G{2,4}"
 
