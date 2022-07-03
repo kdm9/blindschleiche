@@ -62,10 +62,10 @@ def telogrep_main(argv=None):
         if args.omit_telomereless and fwdstr == "" and revstr == "":
             continue
         
-        print('{:<20}  {:>20} ------- {:<20}'.format(ctgid, fwdstr, revstr))
+        print('{:<20} ({:>9}bp) {:>20} ------- {:<20}'.format(ctgid, len(sequence), fwdstr, revstr))
     
     print()
-    print('{:<20}  {:>20} ------- {:<20}'.format("TOTAL:", "{} 5' Telos".format(nfwd),
+    print('{:<20}               {:>20} ------- {:<20}'.format("TOTAL:", "{} 5' Telos".format(nfwd),
                                                            "{} 3' Telos".format(nrev)))
 
 if __name__ == "__main__":
