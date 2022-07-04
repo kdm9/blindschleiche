@@ -24,11 +24,11 @@ def calc_n50(fastafile):
 def n50_main(argv=None):
     """Calculate N50 and total length of a set of contigs"""
     ap = argparse.ArgumentParser()
-    ap.add_argument("assembly", nargs="+")
+    ap.add_argument("fastas", help="FASTA file of contigs", nargs="+")
     args = ap.parse_args(argv)
     
-    for file in args.assembly:
-        nbases, ncontig, n50 = calc_n50(file)
+    for infile in args.fastas:
+        nbases, ncontig, n50 = calc_n50(infile)
         print(quote(file), ":", sep="")
         print("  ncontigs:", ncontig)
         print("  n50:", n50)

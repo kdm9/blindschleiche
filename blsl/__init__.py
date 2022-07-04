@@ -16,6 +16,9 @@ cmds["telogrep"] = telogrep_main
 from .n50 import n50_main
 cmds["n50"] = n50_main
 
+from .falen import falen_main
+cmds["falen"] = falen_main
+
 def mainhelp():
     print("USAGE: bls <subtool> [options...]\n\n")
     print("Where <subtool> is one of:\n")
