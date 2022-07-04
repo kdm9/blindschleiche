@@ -25,6 +25,10 @@ def telogrep_main(argv=None):
             "-o", "--omit-telomereless", action="store_true",
             help="Don't output for contigs with neither 5' or 3' telomeres"
     )
+    ap.add_argument(
+            "-T", "--tsv", action="store_true",
+            help="Output as a TSV for easy reading into other tools."
+    )
     args = ap.parse_args(argv)
 
     # These are taken from https://dx.doi.org/10.1093/gbe/evt019
@@ -35,6 +39,9 @@ def telogrep_main(argv=None):
     min_bp = window * args.threshold/100
     nrev = 0
     nfwd = 0
+
+    if args.tsv:
+        print("contig", "contig_len", "n_bp_fwd", "teloseq_fwd", "n_bp_rev", "teloseq_rev", sep="\t")
 
     for record in SeqIO.parse(args.fasta, "fasta"):
         ctgid = str(record.description).split(" ")[0]
@@ -49,25 +56,35 @@ def telogrep_main(argv=None):
         revbp = sum(revlens)
 
         fwdstr = ""
+        mcfwd = ""
         if fwdbp > min_bp:
             mcfwd = Counter(fwds).most_common(1)[0][0]
             fwdstr = "{}bp of ({})".format(fwdbp, mcfwd)
             nfwd += 1
+        else:
+            fwdbp = 0
 
         revstr = ""
+        mcrev = ""
         if revbp > min_bp:
             mcrev = Counter(revs).most_common(1)[0][0]
             revstr = "{}bp of ({})".format(revbp, mcrev)
             nrev += 1
+        else:
+            revbp = 0
         
         if args.omit_telomereless and fwdstr == "" and revstr == "":
             continue
         
-        print('{:<20} ({:>9}bp) {:>20} ------- {:<20}'.format(ctgid, len(sequence), fwdstr, revstr))
+        if args.tsv:
+            print(ctgid, len(sequence), fwdbp, mcfwd, revbp, mcrev, sep="\t")
+        else:
+            print('{:<20} ({:>9}bp) {:>20} ------- {:<20}'.format(ctgid, len(sequence), fwdstr, revstr))
     
-    print()
-    print('{:<20}               {:>20} ------- {:<20}'.format("TOTAL:", "{} 5' Telos".format(nfwd),
-                                                           "{} 3' Telos".format(nrev)))
+    if not args.tsv:
+        print()
+        print('{:<20}               {:>20} ------- {:<20}'.format("TOTAL:", "{} 5' Telos".format(nfwd),
+                                                                            "{} 3' Telos".format(nrev)))
 
 if __name__ == "__main__":
     telogrep_main()
