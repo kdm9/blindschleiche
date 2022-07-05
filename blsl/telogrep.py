@@ -39,6 +39,7 @@ def telogrep_main(argv=None):
     min_bp = window * args.threshold/100
     nrev = 0
     nfwd = 0
+    nt2t = 0
 
     if args.tsv:
         print("contig", "contig_len", "n_bp_fwd", "teloseq_fwd", "n_bp_rev", "teloseq_rev", sep="\t")
@@ -55,12 +56,14 @@ def telogrep_main(argv=None):
         revlens = [len(x) for x in revs]
         revbp = sum(revlens)
 
+        n_t = 0
         fwdstr = ""
         mcfwd = ""
         if fwdbp > min_bp:
             mcfwd = Counter(fwds).most_common(1)[0][0]
             fwdstr = "{}bp of ({})".format(fwdbp, mcfwd)
             nfwd += 1
+            n_t += 1
         else:
             fwdbp = 0
 
@@ -70,9 +73,13 @@ def telogrep_main(argv=None):
             mcrev = Counter(revs).most_common(1)[0][0]
             revstr = "{}bp of ({})".format(revbp, mcrev)
             nrev += 1
+            n_t += 1
         else:
             revbp = 0
         
+        if n_t == 2:
+            nt2t += 1
+
         if args.omit_telomereless and fwdstr == "" and revstr == "":
             continue
         
@@ -83,8 +90,8 @@ def telogrep_main(argv=None):
     
     if not args.tsv:
         print()
-        print('{:<20}               {:>20} ------- {:<20}'.format("TOTAL:", "{} 5' Telos".format(nfwd),
-                                                                            "{} 3' Telos".format(nrev)))
+        print('{:<20}               {:>20} ------- {:<20}  ({} T2T chroms)'.format(
+                "TOTAL:", "{} 5' Telos".format(nfwd), "{} 3' Telos".format(nrev), nt2t))
 
 if __name__ == "__main__":
     telogrep_main()
