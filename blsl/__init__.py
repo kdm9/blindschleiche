@@ -20,11 +20,11 @@ from .falen import falen_main
 cmds["falen"] = falen_main
 
 def mainhelp():
-    print("USAGE: bls <subtool> [options...]\n\n")
+    print("USAGE: blsl <subtool> [options...]\n\n")
     print("Where <subtool> is one of:\n")
     for tool, func in cmds.items():
         print("  {:<12}".format(tool + ":"), "  ", func.__doc__)
-    print("\n\nUse bls subtool --help to get help about a specific tool")
+    print("\n\nUse blsl subtool --help to get help about a specific tool")
 
 
 def main():
