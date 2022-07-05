@@ -29,7 +29,7 @@ def n50_main(argv=None):
     
     for infile in args.fastas:
         nbases, ncontig, n50 = calc_n50(infile)
-        print(quote(file), ":", sep="")
+        print(quote(infile), ":", sep="")
         print("  ncontigs:", ncontig)
         print("  n50:", n50)
         print("  total_length:", nbases)
