@@ -6,7 +6,7 @@
 
 from sys import argv, exit
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 cmds = {}
 
@@ -18,6 +18,10 @@ cmds["n50"] = n50_main
 
 from .falen import falen_main
 cmds["falen"] = falen_main
+
+from .mask2bed import mask2bed_main
+cmds["mask2bed"] = mask2bed_main
+
 
 def mainhelp():
     print("USAGE: blsl <subtool> [options...]\n\n")
