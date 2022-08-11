@@ -6,7 +6,7 @@
 
 from sys import argv, exit
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 cmds = {}
 
@@ -21,6 +21,12 @@ cmds["falen"] = falen_main
 
 from .mask2bed import mask2bed_main
 cmds["mask2bed"] = mask2bed_main
+
+from .liftoff_gff3 import liftoff_gff3_main
+cmds["liftoff-gff3"] = liftoff_gff3_main
+
+from .pansn_rename import main as pansn_rename_main
+cmds["pansn-rename"] = pansn_rename_main
 
 
 def mainhelp():
