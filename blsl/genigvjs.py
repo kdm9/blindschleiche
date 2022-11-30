@@ -44,7 +44,7 @@ def link(linkpath, target):
 def genigvjs_main(argv=None):
     """Generate a simple IGV.js visualisation of some bioinf files."""
     ap = argparse.ArgumentParser()
-    ap.add_argument("--template", "-T", required=False
+    ap.add_argument("--template", "-T", required=False,
             help="Alternative HTML template")
     ap.add_argument("--title", "-t", default="IGV.js",
             help="Webpage title")
@@ -54,6 +54,10 @@ def genigvjs_main(argv=None):
             help="Output directory. Data files will be softlinked there, and 'index.html' will be generated.")
     ap.add_argument("tracks", help="Any files to be used as tracks. Can be gff/bed/vcf/bcf/bam/cram. Must be indexed", nargs="+")
     args = ap.parse_args(argv)
+
+    if args.template is not None:
+        with open(args.template) as fh:
+            template = fh.read()
 
     outdir = Path(args.outdir)
     outdir.mkdir(exist_ok=True)
