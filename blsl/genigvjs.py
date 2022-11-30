@@ -6,6 +6,7 @@
 
 import argparse
 import json
+from pathlib import Path
 
 template = """
 <!doctype html>
@@ -64,7 +65,8 @@ def genigvjs_main(argv=None):
     for track in args.tracks:
         track = Path(track)
         base = track.stem
-        (outdir / track.name).symlink_to(ref)
+        for extra in track.glob("*"):
+            (outdir / extra.name).symlink_to(extra)
         trackdat = {
             "name": base,
             "url": f"./{track.name}",
