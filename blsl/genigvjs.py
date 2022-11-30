@@ -33,9 +33,8 @@ template = """
 
 def link(linkpath, target):
     linkpath = Path(linkpath)
-    target = Path(target)
+    target = Path(target).absolute()
     try:
-        print(linkpath, target, "same", linkpath.samefile(target))
         if linkpath.samefile(target):
             return
     except:
@@ -45,11 +44,13 @@ def link(linkpath, target):
 def genigvjs_main(argv=None):
     """Generate a simple IGV.js visualisation of some bioinf files."""
     ap = argparse.ArgumentParser()
+    ap.add_argument("--template", "-T", required=False
+            help="Alternative HTML template")
     ap.add_argument("--title", "-t", default="IGV.js",
             help="Webpage title")
-    ap.add_argument("--reference", "-r",
+    ap.add_argument("--reference", "-r", required=True,
             help="reference file. must be *.fa or *.fasta, with associated *.fai, and can also have *.gff as annotation.")
-    ap.add_argument("--outdir", "-o",
+    ap.add_argument("--outdir", "-o", required=True,
             help="Output directory. Data files will be softlinked there, and 'index.html' will be generated.")
     ap.add_argument("tracks", help="Any files to be used as tracks. Can be gff/bed/vcf/bcf/bam/cram. Must be indexed", nargs="+")
     args = ap.parse_args(argv)
