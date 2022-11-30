@@ -31,6 +31,16 @@ template = """
 </body>
 """
 
+def link(linkpath, target):
+    linkpath = Path(linkpath)
+    target = Path(target)
+    try:
+        print(linkpath, target, "same", linkpath.samefile(target))
+        if linkpath.samefile(target):
+            return
+    except:
+        pass
+    linkpath.symlink_to(target)
 
 def genigvjs_main(argv=None):
     """Generate a simple IGV.js visualisation of some bioinf files."""
@@ -58,15 +68,15 @@ def genigvjs_main(argv=None):
         "name": refbase,
         "fastaURL": f"./{ref.name}"
     }
-    (outdir / ref.name).symlink_to(ref)
-    (outdir / (ref.name + ".fai")).symlink_to(Path(str(ref) + ".fai"))
-
+    link(outdir / ref.name, ref)
+    link(outdir / (ref.name + ".fai"), Path(str(ref) + ".fai"))
     
     for track in args.tracks:
         track = Path(track)
         base = track.stem
-        for extra in track.glob("*"):
-            (outdir / extra.name).symlink_to(extra)
+        parent = track.parent
+        for extra in parent.glob(f"{track.name}*"):
+            link(outdir / extra.name, extra)
         trackdat = {
             "name": base,
             "url": f"./{track.name}",
