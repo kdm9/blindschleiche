@@ -4,7 +4,7 @@ description = "Miscelanelous python-based bioinformatics utils"
 authors = [
     { name = "Dr. K. D. Murray", email = "info@gekkonid.com" }
 ]
-requires_python = ">=3.7"
+requires_python = ">=3.8"
 dependencies = [
     "biopython",
 ]
