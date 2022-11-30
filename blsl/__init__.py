@@ -22,6 +22,9 @@ cmds["falen"] = falen_main
 from .mask2bed import mask2bed_main
 cmds["mask2bed"] = mask2bed_main
 
+from .genigvjs import genigvjs_main
+cmds["genigvjs"] = genigvjs_main
+
 from .liftoff_gff3 import liftoff_gff3_main
 cmds["liftoff-gff3"] = liftoff_gff3_main
 
