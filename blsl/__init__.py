@@ -31,12 +31,15 @@ cmds["liftoff-gff3"] = liftoff_gff3_main
 from .pansn_rename import main as pansn_rename_main
 cmds["pansn-rename"] = pansn_rename_main
 
+from .ildemux import main as ildemux_main
+cmds["ildemux"] = ildemux_main
+
 
 def mainhelp():
     print("USAGE: blsl <subtool> [options...]\n\n")
     print("Where <subtool> is one of:\n")
     for tool, func in cmds.items():
-        print("  {:<12}".format(tool + ":"), "  ", func.__doc__)
+        print("  {:<15}".format(tool + ":"), " ", func.__doc__.split("\n")[0])
     print("\n\nUse blsl subtool --help to get help about a specific tool")
 
 
