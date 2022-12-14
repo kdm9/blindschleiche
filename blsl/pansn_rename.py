@@ -8,10 +8,10 @@ except ImportError:
 import argparse
 import re
 from pathlib import Path
-from sys import stderr
+from sys import stderr, exit
 
 
-def make_replacer(reffa, mode, delim="~", outdelim="~", refdelim="~"):
+def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refdelim="~"):
     names = []
     if not reffa.endswith(".fai"):
         reffa += ".fai"
@@ -20,14 +20,17 @@ def make_replacer(reffa, mode, delim="~", outdelim="~", refdelim="~"):
             names.append(line.split()[0])
     fromto = {}
     for name in names:
-        splitname = name.strip().split(refdelim)
-        fromname = delim.join(splitname)
+        if org_name is not None:
+            splitname = [org_name, "0", name]
+        else:
+            splitname = name.strip().split(refdelim)
+        pansn_name = delim.join(splitname)
         if mode == "cat": 
-            fromto[fromname] = outdelim.join(splitname)
+            fromto[pansn_name] = outdelim.join(splitname)
         elif mode == "add":
             fromto[splitname[2]] = outdelim.join(splitname)
         elif mode == "rm":
-            fromto[fromname] = splitname[2]
+            fromto[pansn_name] = splitname[2]
     return fromto
 
 
@@ -78,6 +81,8 @@ def main(argv=None):
         help="Reference fasta file with PanSN names.")
     ap.add_argument("-R", "--ref-delim",
         help="Delimiter between fields in PanSN names in the --reference-fasta file (default: same as --delim)")
+    ap.add_argument("-n", "--org-name",
+        help="Organism name (or similar) to prepend to current identifiers (separated by --out-delim).")
     ap.add_argument("-c", "--colidx", action="append", type=int,
         help="Which column in TSV should be sub'd? (default depends on input "
              "filetype, normally 0, use more than once for multiple columns "
@@ -89,6 +94,9 @@ def main(argv=None):
     ap.add_argument("input", type=argparse.FileType("r"))
     args = ap.parse_args(argv)
 
+    if args.reference_fasta is None and args.org_name is None:
+        print("ERROR: must give either --reference-file or --org-name as source of new names")
+        exit(1)
     if args.colidx is None:
         args.colidx = [0, ]
     args.colidx = list(sorted(set(args.colidx)))
@@ -97,8 +105,7 @@ def main(argv=None):
     if args.ref_delim is None:
         args.ref_delim = args.delim
         
-    
-    replacer = make_replacer(args.reference_fasta, args.mode, args.delim, args.out_delim, args.ref_delim)
+    replacer = make_replacer(args.mode, args.reference_fasta, args.org_name, args.delim, args.out_delim, args.ref_delim)
     
     input_ftype = "tsv"
     try:
