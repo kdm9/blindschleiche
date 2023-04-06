@@ -7,8 +7,29 @@
 import argparse
 import json
 from pathlib import Path
+import subprocess
+from base64 import b64encode 
+def get_data_uri(data):
+    if isinstance(data, str) or isinstance(data, Path):
+        data = Path(data)
+        if data.stat().st_size > 2**22:
+            raise ValueError(f"Too big to embed: {data}")
+        with open(data, "rb") as fh:
+            data = fh.read()
+    elif len(data) > 2**22:
+        raise ValueError(f"Too big to embed data")
+    if data[0] == 0x1f and data[1] == 0x8b:
+        mediatype = "data:application/gzip"
+    else:
+        mediatype = "data:application:octet-stream"
 
-template = """
+    enc_str = b64encode(data)
+
+    data_uri = mediatype + ";base64," + str(enc_str)[2:-1]
+    return data_uri
+
+
+default_template = """
 <!doctype html>
 <html lang=en>
   <head>
@@ -46,6 +67,10 @@ def genigvjs_main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--template", "-T", required=False,
             help="Alternative HTML template")
+    ap.add_argument("--embed", "-e", action="store_true",
+            help="Encode data as base64 within html (almost always a bad idea on non-toy datasets).")
+    ap.add_argument("--prefix", "-p", default="./",
+            help="URL prefix of paths relative to generated index.html")
     ap.add_argument("--title", "-t", default="IGV.js",
             help="Webpage title")
     ap.add_argument("--reference", "-r", required=True,
@@ -58,6 +83,8 @@ def genigvjs_main(argv=None):
     if args.template is not None:
         with open(args.template) as fh:
             template = fh.read()
+    else:
+        template = default_template
 
     outdir = Path(args.outdir)
     outdir.mkdir(exist_ok=True)
@@ -68,27 +95,54 @@ def genigvjs_main(argv=None):
     }
     ref = Path(args.reference)
     refbase = ref.stem
+    reffai = Path(str(ref) + ".fai")
     data["reference"] = {
         "id": refbase,
         "name": refbase,
-        "fastaURL": f"./{ref.name}"
     }
-    link(outdir / ref.name, ref)
-    link(outdir / (ref.name + ".fai"), Path(str(ref) + ".fai"))
-    
-    for track in args.tracks:
+    if args.embed:
+        data["reference"].update({
+            "fastaURL": get_data_uri(ref),
+            "indexURL": get_data_uri(reffai),
+        })
+    else:
+        data["reference"].update({
+            "fastaURL": f"{args.prefix}{ref.name}",
+        })
+        link(outdir / ref.name, ref)
+        link(outdir / (ref.name + ".fai"), reffai)
+    cbpaired = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c',
+                '#fdbf6f','#ff7f00','#cab2d6','#6a3d9a', '#b15928']
+    for i, track in enumerate(args.tracks):
         track = Path(track)
         base = track.stem
-        parent = track.parent
-        for extra in parent.glob(f"{track.name}*"):
-            link(outdir / extra.name, extra)
+        format = track.suffix.lstrip(".")
+        index = None
+        if format == "bam":
+            index = Path(str(track) + ".bai")
+        else:
+            index = Path(str(track) + ".tbi")
+            if not index.exists():
+                index = None
         trackdat = {
             "name": base,
-            "url": f"./{track.name}",
             "format": track.suffix.lstrip("."),
+            "autoHeight": True,
+            "minHeight": 50,
+            "maxHeight": 500,
+            "color": cbpaired[i%len(cbpaired)],
         }
+        if args.embed:
+            trackdat["url"] = get_data_uri(track)
+            if index is not None:
+                trackdat["indexURL"] = get_data_uri(index)
+        else:
+            trackdat["url"] =  f"{args.prefix}{track.name}"
+            link(outdir / track.name, track)
+            if index is not None:
+                trackdat["indexURL"] =  f"{args.prefix}{index.name}"
+                link(outdir / index.name, index)
         data["tracks"].append(trackdat)
-
     with open(outdir / "index.html", "w") as fh:
         html = template \
                 .replace("__title__", args.title) \
