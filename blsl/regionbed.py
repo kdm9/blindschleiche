@@ -30,7 +30,8 @@ def main(argv):
     args = ap.parse_args(argv)
 
     for chrm, start, stop, leng in make_regions(args.fasta):
+        region = f"{chrm}:{start+1}-{stop}"
         if args.bed is not None:
-            print(chrm, start, stop, file=args.bed, sep="\t")
+            print(chrm, start, stop, region, file=args.bed, sep="\t")
         if args.regions is not None:
-            print(f"{chrm}:{start+1}-{stop}", file=args.regions, sep="\t")
+            print(region, file=args.regions, sep="\t")
