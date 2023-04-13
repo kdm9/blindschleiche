@@ -34,6 +34,8 @@ cmds["pansn-rename"] = pansn_rename_main
 from .ildemux import main as ildemux_main
 cmds["ildemux"] = ildemux_main
 
+from .regionbed import main as regionbed_main
+cmds["regionbed"] = regionbed_main
 
 def mainhelp():
     print("USAGE: blsl <subtool> [options...]\n\n")
