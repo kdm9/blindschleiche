@@ -6,7 +6,7 @@
 
 from sys import argv, exit
 
-__version__ = "0.1.7"
+__version__ = "0.1.7.1"
 
 cmds = {}
 
@@ -33,6 +33,8 @@ cmds["pansn-rename"] = pansn_rename_main
 
 from .ildemux import main as ildemux_main
 cmds["ildemux"] = ildemux_main
+from .ilsample import main as ilsample_main
+cmds["ilsample"] = ilsample_main
 
 from .regionbed import main as regionbed_main
 cmds["regionbed"] = regionbed_main
