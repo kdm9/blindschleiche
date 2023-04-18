@@ -29,3 +29,9 @@ Where <subtool> is one of:
 
 Use blsl subtool --help to get help about a specific tool
 ```
+
+## Why Blindschleiche
+
+1) [They're awesome animals](https://www.google.com/search?q=blindschleiche&tbm=isch)
+2) Their English name is Slow Worm, which is appopriate for this set of low-performance tools in Python. Also they're kinda a snake (not really).
+
