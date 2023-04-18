@@ -33,19 +33,26 @@ cmds["pansn-rename"] = pansn_rename_main
 
 from .ildemux import main as ildemux_main
 cmds["ildemux"] = ildemux_main
+
 from .ilsample import main as ilsample_main
 cmds["ilsample"] = ilsample_main
 
 from .regionbed import main as regionbed_main
 cmds["regionbed"] = regionbed_main
 
-def mainhelp():
+from .uniref_accessionmap import main as uniref_main
+cmds["uniref-acc2taxid"] = uniref_main
+
+
+def mainhelp(argv=None):
+    """Print this help message"""
     print("USAGE: blsl <subtool> [options...]\n\n")
     print("Where <subtool> is one of:\n")
     for tool, func in cmds.items():
-        print("  {:<15}".format(tool + ":"), " ", func.__doc__.split("\n")[0])
+        print("  {:<19}".format(tool + ":"), " ", func.__doc__.split("\n")[0])
     print("\n\nUse blsl subtool --help to get help about a specific tool")
 
+cmds["help"] = mainhelp
 
 def main():
     if len(argv) < 2:
