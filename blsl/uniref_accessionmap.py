@@ -10,20 +10,22 @@ def main(argv):
     ap = argparse.ArgumentParser(prog=prog)
     ap.add_argument("--strip-uniref", "-s", action="store_true",
             help="Strip UniRefXX_ prefixes from IDs (for Diamond, see https://github.com/bbuchfink/diamond/issues/639)")
-    args = ap.parse_args(argv[1:])
+    args = ap.parse_args(argv)
     
     if stdout.isatty() and stdin.isatty():
         print(f"USAGE: zcat uniref.fasta.gz | {prog} [-s] >uniref.acc2taxid.tsv")
         exit(0)
 
+    #if args.strip_uniref:
+    #    print("Stripping UniRefXX_ from each sequence ID (for Diamond)", file=stderr)
     for line in stdin:
         if not line.startswith(">"):
             continue
         seqid, *line = line.rstrip().lstrip(">").split(" ")
-        fields = dict(x.split("=") for x in line if "=" in x)
+        fields = dict(x.split("=", 1) for x in line if "=" in x)
         if args.strip_uniref:
             # needed for Diamond, see https://github.com/bbuchfink/diamond/issues/639
-            seqid = re.sub("UniRef\d\d_", "", seqid)
+            seqid = re.sub(r"UniRef\d\d_", "", seqid)
         print(seqid, fields.get("TaxID", 0), sep="\t", file=stdout)
 
 if __name__ == "__main__":
