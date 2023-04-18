@@ -6,7 +6,7 @@
 
 from sys import argv, exit
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 
 cmds = {}
 
