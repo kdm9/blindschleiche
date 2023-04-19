@@ -18,6 +18,7 @@ def main(argv):
 
     #if args.strip_uniref:
     #    print("Stripping UniRefXX_ from each sequence ID (for Diamond)", file=stderr)
+    print("accession.version", "taxid", sep="\t", file=stdout)
     for line in stdin:
         if not line.startswith(">"):
             continue
