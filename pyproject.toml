@@ -4,14 +4,16 @@ description = "Miscelanelous python-based bioinformatics utils"
 authors = [
     { name = "Dr. K. D. Murray", email = "info@gekkonid.com" }
 ]
-requires_python = ">=3.8"
+requires-python = ">=3.8"
 dependencies = [
     "biopython",
 ]
 dynamic = [
     "version",
 ]
-
+[project.readme]
+file = "README.md" 
+content-type = "text/markdown"
 
 [project.scripts]
 blsl = "blsl:main"
