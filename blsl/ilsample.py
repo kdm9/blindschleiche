@@ -28,7 +28,6 @@ def main(argv):
             help="Input fastq file")
     args=ap.parse_args(argv)
     
-    
     if args.input.suffix == ".gz":
         stream = gzip.open(args.input, "rb")
     else:
@@ -43,5 +42,6 @@ def main(argv):
             args.out.write(b"".join(pair))
 
     print(f"Done! Sampled {sampled} of {total} pairs", file=stderr)
+
 if __name__ == "__main__":
     main()

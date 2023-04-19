@@ -105,7 +105,7 @@ def gethdrdat(hdr):
 
 def fqp2idx(fqp):
     """fastq pair to index pair ACGT+ACGT"""
-    s1, i1, ip1 = gethdrdat(fqp[0].rstrip("\n"))
+    s1, i1, ip1 = gethdrdat(fqp[0])
     s2, i2, ip2 = gethdrdat(fqp[4])
     assert(s1 == s2)
     assert(ip1 == ip2)
