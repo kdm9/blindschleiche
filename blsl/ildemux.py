@@ -4,6 +4,8 @@ from sys import stdin
 from tqdm import tqdm
 from collections import Counter
 
+from ._utils import fqpair, rc
+
 def hamming_cloud(seq, distance=1):
     """Generate DNA seqs whose Hamming distance from seq is <= distance
 
@@ -88,16 +90,6 @@ class ByteBucket(object):
     def __del__(self):
         self.flush()
 
-def fqpair(stream):
-    fqp = list()
-    for line in stream:
-        fqp.append(line)
-        if len(fqp) == 8:
-            yield fqp
-            fqp = list()
-    if len(fqp) == 8:
-        yield fqp
-
 def gethdrdat(hdr):
     spot, idx = hdr.rstrip("\n").split(" ")
     idxpair = idx.split(":")[3]
@@ -110,10 +102,6 @@ def fqp2idx(fqp):
     assert(s1 == s2)
     assert(ip1 == ip2)
     return ip1
-
-def rc(seq):
-    d = {"A": "T", "G":"C", "C":"G", "T":"A"}
-    return "".join([d.get(x, "N") for x in reversed(list(seq.upper()))])
 
 def make_sample_map(tablefile, outdir, fileext=".fq", distance=1):
     from csv import DictReader

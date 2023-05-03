@@ -43,6 +43,11 @@ cmds["regionbed"] = regionbed_main
 from .uniref_accessionmap import main as uniref_main
 cmds["uniref-acc2taxid"] = uniref_main
 
+from .nstitch import nstitch_main
+cmds["nstitch"] = nstitch_main
+
+from .gg2k import gg2k_main
+cmds["gg2k"] = gg2k_main
 
 def mainhelp(argv=None):
     """Print this help message"""
