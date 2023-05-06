@@ -49,6 +49,13 @@ cmds["nstitch"] = nstitch_main
 from .gg2k import gg2k_main
 cmds["gg2k"] = gg2k_main
 
+from .equalbestblast import equalbestblast_main
+cmds["equalbestblast"] = equalbestblast_main
+
+from .tabcat import tabcat_main
+cmds["tabcat"] = tabcat_main
+
+
 def mainhelp(argv=None):
     """Print this help message"""
     print("USAGE: blsl <subtool> [options...]\n\n")

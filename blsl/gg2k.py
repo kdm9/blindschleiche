@@ -22,10 +22,24 @@ def recursive_taxtable(lineage, level=0):
                                 key=lambda x: x[1]["__count__"])):
         yield from recursive_taxtable(v, level=level+1)
 
+def insert_lineage(tree, lin, max_level=None, n=1):
+    X = tree
+    X["__count__"] += n
+    X["__name__"] = "root"
+    X["__line__"] = "NA"
+    for i, t in enumerate(lin):
+        X = X[t]
+        X["__count__"] += n
+        X["__name__"] = t
+        X["__line__"] = ";".join(lin)
+        if max_level is not None and i >= max_level:
+            break
 
 def gg2k_main(argv=None):
     """Summarise a table with GreenGenes-style lineages into a kraken-style report."""
     ap = argparse.ArgumentParser()
+    ap.add_argument("-l", "--lca-column", type=lambda x: int(x) - 1,
+            help="Take the lowest common ancestor per value in this column")
     ap.add_argument("-f", "--column", required=True, type=lambda x: int(x) - 1,
             help="Which column contains lineages?")
     ap.add_argument("-d", "--column-delim", default="\t",
@@ -34,6 +48,8 @@ def gg2k_main(argv=None):
             help="Delimiter between nodes in a taxon lineage")
     ap.add_argument("-L", "--max-level", default=None, type=lambda x: int(x) - 1,
             help="Maximum level to descend to.")
+    ap.add_argument("-V", "--vsearch-size", default=None, type=lambda x: int(x) - 1,
+            help="Parse vsearch size=NNNN headers from this column, use NNNN as a count rather than # hits/reads.")
     ap.add_argument("table", help="Table of taxon hits")
     args = ap.parse_args(argv)
     
@@ -44,29 +60,48 @@ def gg2k_main(argv=None):
         doublequote = True
         skipinitialspace = True
 
-
     lineage = recursive_defaultdict()
     with open(args.table) as fh:
+        current_id = None
+        lca = []
         for rec in csv.reader(fh, dialect=OurDialect):
             linstr = rec[args.column]
             lin = linstr.split(args.lineage_delim)
-            X = lineage
-            X["__count__"] += 1
-            X["__name__"] = "root"
-            X["__line__"] = "NA"
-            for i, t in enumerate(lin):
-                X = X[t]
-                X["__count__"] += 1
-                X["__name__"] = t
-                X["__line__"] = linstr
-                if args.max_level is not None and i >= args.max_level:
-                    break
+            n = 1
+            if args.lca_column is not None:
+                if current_id != rec[args.lca_column]:
+                    if args.vsearch_size is not None and current_id is not None:
+                        hdr = current_id
+                        fields = dict(x.split("=") for x in hdr.split(";") if "=" in x)
+                        n = int(fields["size"])
+                    insert_lineage(lineage, lca, args.max_level, n=n)
+                    lca = lin
+                    current_id = rec[args.lca_column]
+                for i, tax in enumerate(lin):
+                    if i >= len(lca) or lca[i] != tax:
+                        break
+                lca = lca[:i+1]
+            else:
+                if args.vsearch_size is not None:
+                    hdr = rec[args.vsearch_size]
+                    fields = dict(x.split("=") for x in hdr.split(";") if "=" in x)
+                    n = int(fields["size"])
+                insert_lineage(lineage, lin, args.max_level, n=n)
+        if lca:
+            if args.vsearch_size is not None:
+                hdr = current_id
+                fields = dict(x.split("=") for x in hdr.split(";") if "=" in x)
+                n = int(fields["size"])
+            insert_lineage(lineage, lca, args.max_level, n=n)
 
     n = int(math.ceil(math.log10(lineage["__count__"])))
-    for level, name, count, linstr in recursive_taxtable(lineage):
+    taxtbl = list(recursive_taxtable(lineage))
+    max_name = max(len(t[1]) for t in taxtbl)
+    max_level = max(t[0] for t in taxtbl)
+    for level, name, count, linstr in taxtbl:
         linstr = linstr.split(args.lineage_delim, level)
         linstr = args.lineage_delim.join(linstr[:-1])
-        print(str(count).rjust(n + level * 2), name.ljust(15), level, linstr, sep="|")
+        print(name.ljust(max_name + (max_level-level)*2).rjust(max_name + max_level * 2), str(count).rjust(n), level, linstr, sep="|")
 
 if __name__ == "__main__":
     gg2k_main()
