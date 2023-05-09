@@ -31,7 +31,6 @@ def output_best(recs, fields):
         rec for rec in recs if float(rec["length"]) >= maxalnlen
     ]
     nend=len(recs)
-    print(recs[0]["qseqid"], nbegin, nend, mineval, maxalnlen, file=sys.stderr)
     for rec in recs:
         print(*[rec[x] for x in fields], sep="\t")
     
@@ -44,7 +43,6 @@ def equalbestblast_main(argv=None):
     ap.add_argument("table", help="Table of blast hits")
     args = ap.parse_args(argv)
     
-
     fields = args.outfmt.split(" ")
     query = None
     hits = []

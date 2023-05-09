@@ -94,7 +94,7 @@ def gg2k_main(argv=None):
                 n = int(fields["size"])
             insert_lineage(lineage, lca, args.max_level, n=n)
 
-    n = int(math.ceil(math.log10(lineage["__count__"])))
+    n = int(math.ceil(math.log10(lineage["__count__"]+1)))
     taxtbl = list(recursive_taxtable(lineage))
     max_name = max(len(t[1]) for t in taxtbl)
     max_level = max(t[0] for t in taxtbl)
