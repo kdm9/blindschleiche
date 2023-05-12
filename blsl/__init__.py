@@ -58,6 +58,9 @@ cmds["tabcat"] = tabcat_main
 from .esearchandfetch import main as esf_main
 cmds["esearchandfetch"] = esf_main
 
+from .deepclust2fa import deepclust2fa_main
+cmds["deepclust2fa"] = deepclust2fa_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
