@@ -55,6 +55,9 @@ cmds["equalbestblast"] = equalbestblast_main
 from .tabcat import tabcat_main
 cmds["tabcat"] = tabcat_main
 
+from .esearchandfetch import main as esf_main
+cmds["esearchandfetch"] = esf_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
