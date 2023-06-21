@@ -11,7 +11,7 @@ import argparse
 
 
 def tabcat_main(argv=None):
-    """Output only the best blast hits."""
+    """Concatenate table (c/tsv) files, adding the filename as a column"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-d", "--delim", default=",",
             help="Column delimiter.")
@@ -33,7 +33,7 @@ def tabcat_main(argv=None):
     for file in args.xsvs:
         with open(file) as fh:
             for rec in csv.DictReader(fh, dialect=xsv):
-                rec["filename"] = file
+                rec["tabcat_filename"] = file
                 if outcsv is None:
                     outcsv = csv.DictWriter(args.output, dialect=xsv, fieldnames=[k for k in rec])
                     outcsv.writeheader()

@@ -64,6 +64,12 @@ cmds["deepclust2fa"] = deepclust2fa_main
 from .farename import farename_main
 cmds["farename"] = farename_main
 
+from .ebiosra2rl2s import main as rl2s_main
+cmds["ebiosra2rl2s"] = rl2s_main
+
+from .galhist import main as galhist_main
+cmds["galhist"] = galhist_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
