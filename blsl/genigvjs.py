@@ -116,7 +116,10 @@ def genigvjs_main(argv=None):
     for i, track in enumerate(args.tracks):
         track = Path(track)
         base = track.stem
-        format = track.suffix.lstrip(".")
+        dots = track.name.split('.')
+        format = dots[-1]
+        if format == "gz":
+            format = dots[-2]
         index = None
         if format == "bam":
             index = Path(str(track) + ".bai")
@@ -126,7 +129,7 @@ def genigvjs_main(argv=None):
                 index = None
         trackdat = {
             "name": base,
-            "format": track.suffix.lstrip("."),
+            "format": format,
             "autoHeight": True,
             "minHeight": 50,
             "maxHeight": 500,
@@ -146,7 +149,7 @@ def genigvjs_main(argv=None):
     with open(outdir / "index.html", "w") as fh:
         html = template \
                 .replace("__title__", args.title) \
-                .replace("__data__", json.dumps(data))
+                .replace("__data__", json.dumps(data, indent=4))
         fh.write(html)
 
 if __name__ == "__main__":

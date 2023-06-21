@@ -52,6 +52,7 @@ def efetch(db="nucleotide", rettype="genbank", retmode="text", ids=None, chunks=
 
 
 def main(argv=None):
+    """Use the Entrez API to search for and download something. A CLI companion to the NCBI search box"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-e", "--email", type=str,
             help="Email for Entrez API")

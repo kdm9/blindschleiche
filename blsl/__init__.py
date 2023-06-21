@@ -61,6 +61,9 @@ cmds["esearchandfetch"] = esf_main
 from .deepclust2fa import deepclust2fa_main
 cmds["deepclust2fa"] = deepclust2fa_main
 
+from .farename import farename_main
+cmds["farename"] = farename_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
