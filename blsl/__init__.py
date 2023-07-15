@@ -70,6 +70,8 @@ cmds["ebiosra2rl2s"] = rl2s_main
 from .galhist import main as galhist_main
 cmds["galhist"] = galhist_main
 
+from .gffcat import gffcat_main
+cmds["gffcat"] = gffcat_main
 
 def mainhelp(argv=None):
     """Print this help message"""
