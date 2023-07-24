@@ -19,6 +19,8 @@ def tabcat_main(argv=None):
             help="Column delimiter.")
     ap.add_argument("-N", "--add-name", action="store_true",
             help="Add a column with the file name")
+    ap.add_argument("-f", "--fofn", action="store_true",
+            help="Each input is a file of filenames")
     ap.add_argument("xsvs", help="Input {C,T}SVs to concatenate", nargs="+")
     args = ap.parse_args(argv)
 
@@ -29,8 +31,16 @@ def tabcat_main(argv=None):
         skipinitialspace = True
         quoting=csv.QUOTE_MINIMAL
 
+    if args.fofn:
+        files = []
+        for fofn in args.xsvs:
+            with open(fofn) as fh:
+                for file in fh:
+                    files.append(file.rstrip())
+    else:
+        files = args.xsvs
     outcsv = None
-    for file in args.xsvs:
+    for file in files:
         with open(file) as fh:
             for rec in csv.DictReader(fh, dialect=xsv):
                 rec["tabcat_filename"] = file
