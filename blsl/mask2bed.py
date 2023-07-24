@@ -8,6 +8,7 @@
 from Bio import SeqIO
 from shlex import quote
 import argparse
+from tqdm import tqdm
 
 
 full_help = """
@@ -29,7 +30,7 @@ def mask2bed_main(argv=None):
     args = ap.parse_args(argv)
     
     seqs = SeqIO.parse(args.fasta, "fasta")
-    for seq in seqs:
+    for seq in tqdm(seqs):
         last_start = 0
         last_masked = None
         for i, base in enumerate(str(seq.seq)):
