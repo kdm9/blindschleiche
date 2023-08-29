@@ -54,7 +54,7 @@ def parseGFF3(filename, return_as=dict):
     Supports transparent gzip decompression.
     """
     #Parse with transparent decompression
-    openFunc = gzip.open if filename.endswith(".gz") else open
+    openFunc = gzip.open if str(filename).endswith(".gz") else open
     with openFunc(filename) as infile:
         for line in infile:
             #if line.startswith("###"):
@@ -88,12 +88,21 @@ def gff_heirarchy(filename, progress=None):
         "transcript": "mRNA",
     }
     levels = {
+        "repeat_region": "l1",
+        "pseudogene": "l1",
+        "pseuodgenic_region": "l1",
+        "transposable_element_gene": "l1",
         "gene": "l1",
+        "tRNA": "l2",
+        "tmRNA": "l2",
         "mRNA": "l2",
         "exon": "l3",
         "CDS": "l3",
         "five_prime_UTR": "l3",
         "three_prime_UTR": "l3",
+    }
+    ignore = {
+        "source",
     }
     records = {}
     l2l1 = {}
@@ -109,9 +118,13 @@ def gff_heirarchy(filename, progress=None):
         typ = record["type"]
         typ = level_canonicaliser.get(typ, typ)
         record["type"] = typ
-        lvl = levels.get(typ)
+        lvl = None
+        if "RNA" in typ.upper():
+            lvl = "l2"
+        lvl = levels.get(typ, lvl)
         if lvl is None:
-            #print(f"WARNING: {typ} is not a nice feature, skipping", file=stderr)
+            if typ not in ignore:
+                print(f"WARNING: {typ} is not a nice feature, skipping", file=stderr)
             continue
         id = record["attributes"]["ID"]
         if lvl == "l1":
@@ -127,16 +140,16 @@ def gff_heirarchy(filename, progress=None):
             except KeyError:
                 print(f"L2 entry {id} parent {parent} not in records? {record}")
         else:
-            parent = record["attributes"]["Parent"]
             try:
+                parent = record["attributes"]["Parent"]
                 top = l2l1[parent]
+                if id in records[top]["children"][parent]["children"]:
+                    i += 1
+                    id = f"{id}_{i}"
+                    record["attributes"]["ID"] = id
+                records[top]["children"][parent]["children"][id] = record
             except KeyError:
-                print(f"L3 entry {id} parent {parent} not in records? {record}")
-            if id in records[top]["children"][parent]["children"]:
-                i += 1
-                id = f"{id}_{i}"
-                record["attributes"]["ID"] = id
-            records[top]["children"][parent]["children"][id] = record
+                print(f"L3 entry {id} parent not in records? {record}")
     return records
 
 
@@ -172,7 +185,7 @@ def reformat_names(gene, geneid=None, changenames=True):
             gt = gchild["type"]
             gcids[gt] += 1
             gi = gcids[gt]
-            gcid = f"{subid}_{gt}{gi:02d}"
+            gcid = f"{geneid}_{gt}{gi:02d}"
             #print("F", gt, gcid)
             gchild["attributes"]["ID"] = gcid
             gchild["attributes"]["Parent"] = subid
