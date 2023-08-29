@@ -122,7 +122,7 @@ def make_sample_map(tablefile, outdir, fileext=".fq", distance=1):
     return smap
 
 
-def main():
+def main(argv=None):
     """Demultiplex modern illumina reads from read headers.
 
     Supports *ONLY* out-of-read indicies (in @header lines e.g. 1:N:0:ACGT+TGCA), and only reads with i7 + i5.
@@ -133,7 +133,7 @@ def main():
     ap.add_argument("-o", "--outdir", required=True, type=Path,
             help="Output directory (must exist)")
     ap.add_argument("-c", "--justcount", action="store_true",
-            help="Compress outputs with gzip.")
+            help="Write nothing, only tablulate (largely useless)")
     ap.add_argument("-z", "--zip", nargs="?", default=None, const=6, type=int,
             help="Compress outputs with gzip.")
     ap.add_argument("-j", "--threads", default=8,
@@ -142,7 +142,7 @@ def main():
             help="Number tolerable mismatches (hamming distance).")
     ap.add_argument("-k", "--keyfile",
             help="Mapping of i7/i5 -> sample as tsv (with cols i7, i5, sample)")
-    args=ap.parse_args()
+    args=ap.parse_args(argv)
 
     ByteBucket.threads = args.threads
     if args.zip is not None:

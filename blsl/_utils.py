@@ -1,3 +1,4 @@
+import gzip
 
 def rc(seq):
     d = {"A": "T", "G":"C", "C":"G", "T":"A"}
@@ -26,7 +27,4 @@ def fqparse(stream):
         yield fqp
     else:
         assert len(fqp) == 0
-
-
-
 
