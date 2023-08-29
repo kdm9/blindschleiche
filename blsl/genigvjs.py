@@ -75,6 +75,8 @@ def genigvjs_main(argv=None):
             help="Webpage title")
     ap.add_argument("--reference", "-r", required=True,
             help="reference file. must be *.fa or *.fasta, with associated *.fai, and can also have *.gff as annotation.")
+    ap.add_argument("--locus", "-l", 
+            help="Initial region of interest.")
     ap.add_argument("--outdir", "-o", required=True,
             help="Output directory. Data files will be softlinked there, and 'index.html' will be generated.")
     ap.add_argument("tracks", help="Any files to be used as tracks. Can be gff/bed/vcf/bcf/bam/cram. Must be indexed", nargs="+")
@@ -93,6 +95,8 @@ def genigvjs_main(argv=None):
         "reference": {},
         "tracks": [],
     }
+    if args.locus:
+        data["locus"] = args.locus
     ref = Path(args.reference)
     refbase = ref.stem
     reffai = Path(str(ref) + ".fai")
