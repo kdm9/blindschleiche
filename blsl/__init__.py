@@ -73,6 +73,11 @@ cmds["galhist"] = galhist_main
 from .gffcat import gffcat_main
 cmds["gffcat"] = gffcat_main
 
+
+from .pairslash import main as pairslash_main
+cmds["pairslash"] = pairslash_main
+
+
 def mainhelp(argv=None):
     """Print this help message"""
     print("USAGE: blsl <subtool> [options...]\n\n")
