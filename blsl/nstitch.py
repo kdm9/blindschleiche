@@ -49,4 +49,4 @@ def nstitch_main(argv=None):
     r2.close()
 
 if __name__ == "__main__":
-    nstich_main()
+    nstitch_main()
