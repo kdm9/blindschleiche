@@ -9,6 +9,7 @@ dependencies = [
     "tqdm",
     "biopython",
     "cyvcf2",
+    "pandas",
 ]
 dynamic = [
     "version",
