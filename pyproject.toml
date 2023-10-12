@@ -6,7 +6,9 @@ authors = [
 ]
 requires-python = ">=3.8"
 dependencies = [
+    "tqdm",
     "biopython",
+    "cyvcf2",
 ]
 dynamic = [
     "version",

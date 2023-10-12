@@ -77,6 +77,12 @@ cmds["gffcat"] = gffcat_main
 from .pairslash import main as pairslash_main
 cmds["pairslash"] = pairslash_main
 
+try:
+    from .vcfstats import main as vcfstats_main
+    cmds["vcfstats"] = vcfstats_main
+except ImportError as exc:
+    print(str(exc), "-- disabling vcfstats command", file=stderr)
+
 
 def mainhelp(argv=None):
     """Print this help message"""
