@@ -3,6 +3,7 @@ from tqdm import tqdm
 from cyvcf2 import VCF
 import pandas as pd
 
+import sys
 from sys import stdin, stdout, stderr
 from subprocess import Popen, PIPE
 import argparse
