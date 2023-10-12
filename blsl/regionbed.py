@@ -20,7 +20,7 @@ def make_regions(fas, window=1e6):
 def main(argv):
     """Make a bed/region file of genome windows"""
     ap = argparse.ArgumentParser()
-    ap.add_argument("--windowsize", "-w", default=100000,
+    ap.add_argument("--windowsize", "-w", default=100000, type=int,
             help="Window size of each non-overlapping region")
     ap.add_argument("--bed", "-b", type=argparse.FileType("w"),
             help="Output bed file")
@@ -29,7 +29,7 @@ def main(argv):
     ap.add_argument("fasta", help="Fasta reference (must have fai)")
     args = ap.parse_args(argv)
 
-    for chrm, start, stop, leng in make_regions(args.fasta):
+    for chrm, start, stop, leng in make_regions(args.fasta, window=args.windowsize):
         region = f"{chrm}:{start+1}-{stop}"
         if args.bed is not None:
             print(chrm, start, stop, region, file=args.bed, sep="\t")

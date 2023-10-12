@@ -34,10 +34,11 @@ def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refd
     return fromto
 
 
-def do_tsv(infh, outfh, cols, replacer, coldelim="\t"):
+def do_tsv(infh, outfh, cols, replacer, coldelim="\t", skipcomment=False):
     for line in tqdm(infh):
         if line.startswith("#"):
-            outfh.write(line)
+            if not skipcomment:
+                outfh.write(line)
             continue
         fields = line.rstrip("\r\n").split(coldelim)
         for col in cols:
