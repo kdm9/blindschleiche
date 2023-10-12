@@ -4,6 +4,7 @@ from sys import stdin, stdout, stderr
 from tqdm import tqdm
 from collections import Counter
 import random
+import gzip
 
 def fqpair(stream):
     fqp = list()
