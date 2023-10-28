@@ -81,10 +81,14 @@ try:
     from .vcfstats import main as vcfstats_main
     cmds["vcfstats"] = vcfstats_main
 except ImportError as exc:
-    print(str(exc), "-- disabling vcfstats command", file=stderr)
+    if len(argv) < 2:
+        print(str(exc), "-- disabling vcfstats command", file=stderr)
 
 from .shannon import main as shannon_main
 cmds["shannon-entropy"] = shannon_main
+
+from .fastasanitiser import main as fastasanitiser_main
+cmds["fastasanitiser"] = fastasanitiser_main
 
 def mainhelp(argv=None):
     """Print this help message"""
