@@ -83,6 +83,8 @@ try:
 except ImportError as exc:
     print(str(exc), "-- disabling vcfstats command", file=stderr)
 
+from .shannon import main as shannon_main
+cmds["shannon-entropy"] = shannon_main
 
 def mainhelp(argv=None):
     """Print this help message"""
