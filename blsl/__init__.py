@@ -6,7 +6,7 @@
 
 from sys import argv, exit, stderr
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 cmds = {}
 
@@ -27,6 +27,9 @@ cmds["genigvjs"] = genigvjs_main
 
 from .liftoff_gff3 import liftoff_gff3_main
 cmds["liftoff-gff3"] = liftoff_gff3_main
+
+from .gfftagsane import main as gfftagsane_main
+cmds["gfftagsane"] = gfftagsane_main
 
 from .pansn_rename import main as pansn_rename_main
 cmds["pansn-rename"] = pansn_rename_main
@@ -80,6 +83,9 @@ cmds["pairslash"] = pairslash_main
 try:
     from .vcfstats import main as vcfstats_main
     cmds["vcfstats"] = vcfstats_main
+
+    from .vcfparallel import main as vcfparallel_main
+    cmds["vcfparallel"] = vcfparallel_main
 except ImportError as exc:
     if len(argv) < 2:
         print(str(exc), "-- disabling vcfstats command", file=stderr)

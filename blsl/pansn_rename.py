@@ -11,7 +11,11 @@ from pathlib import Path
 from sys import stderr, exit
 
 
-def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refdelim="~"):
+def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refdelim="~", lowercase=True):
+    def L(string):
+        if lowercase:
+            return string.lower()
+        return string
     names = []
     if not reffa.endswith(".fai"):
         reffa += ".fai"
@@ -26,11 +30,11 @@ def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refd
             splitname = name.strip().split(refdelim)
         pansn_name = delim.join(splitname)
         if mode == "cat": 
-            fromto[pansn_name] = outdelim.join(splitname)
+            fromto[pansn_name] = L(outdelim.join(splitname))
         elif mode == "add":
-            fromto[splitname[2]] = outdelim.join(splitname)
+            fromto[splitname[2]] = L(outdelim.join(splitname))
         elif mode == "rm":
-            fromto[pansn_name] = splitname[2]
+            fromto[pansn_name] = L(splitname[2])
     return fromto
 
 
@@ -76,6 +80,8 @@ def main(argv=None):
         help="Delimiter between columns in c/tsv file. (default tab)")
     ap.add_argument("-d", "--delim", default="_",
         help="Delimiter between fields in PanSN names in <INPUT> (the # in indiv#1#chr1)")
+    ap.add_argument("-l", "--lowercase", action="store_true",
+        help="Lowercase all names")
     ap.add_argument("-D", "--out-delim",
         help="--delim for the output. Defaults to the same as --delim.")
     ap.add_argument("-r", "--reference-fasta", required=True,
@@ -106,7 +112,7 @@ def main(argv=None):
     if args.ref_delim is None:
         args.ref_delim = args.delim
         
-    replacer = make_replacer(args.mode, args.reference_fasta, args.org_name, args.delim, args.out_delim, args.ref_delim)
+    replacer = make_replacer(args.mode, args.reference_fasta, args.org_name, args.delim, args.out_delim, args.ref_delim, lowercase=args.lowercase)
     
     input_ftype = "tsv"
     try:

@@ -55,7 +55,7 @@ def parseGFF3(filename, return_as=dict):
     """
     #Parse with transparent decompression
     openFunc = gzip.open if str(filename).endswith(".gz") else open
-    with openFunc(filename) as infile:
+    with openFunc(filename, "rt") as infile:
         for line in infile:
             #if line.startswith("###"):
             #    ### Yield last gene if we move that here
@@ -103,6 +103,7 @@ def gff_heirarchy(filename, progress=None):
     }
     ignore = {
         "source",
+        "stop_codon",
     }
     records = {}
     l2l1 = {}
@@ -194,20 +195,20 @@ def reformat_names(gene, geneid=None, changenames=True):
                 prefix_name(gchild, gcid)
             #print("H", gcid, gchild["attributes"]["Name"])
     
+
+def write_line(entry, file):
+    x = [entry[field] if entry[field] is not None else "." for i, field in enumerate(gffInfoFields)]
+    x[-1] = attr2line(x[-1])
+    print(*x, sep="\t", file=file)
+
 def write_gene(gene, geneid=None, file=None, changenames=False):
-    def write_line(entry):
-        x = [entry[field] if entry[field] is not None else "." for i, field in enumerate(gffInfoFields)]
-        x[-1] = attr2line(x[-1])
-        print(*x, sep="\t", file=file)
-    #print(gene, geneid)
-    #print("## gff-version 3", file=file)
     if geneid or changenames:
         reformat_names(gene, geneid, changenames)
-    write_line(gene)
+    write_line(gene, file)
     for child in gene.get("children", {}).values():
-        write_line(child)
+        write_line(child, file)
         for gchild in child.get("children", {}).values():
-            write_line(gchild)       
+            write_line(gchild, file)       
     print("###", file=file)
     
 

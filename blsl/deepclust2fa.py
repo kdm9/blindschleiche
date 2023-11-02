@@ -32,6 +32,8 @@ def deepclust2fa_main(argv=None):
             help="Buffer sequences rather than writing (more ram, more speed)")
     ap.add_argument("-c", "--clusters", required=True,
             help="Diamond deepclust result")
+    ap.add_argument("--orthofinder", "--of",  action="store_true",
+            help="--clusters is actually an orthofinder result, like OG: seq1 seq2 seq3")
     ap.add_argument("-f", "--faa", required=True,
             help="Fasta sequences (that you gave to diamond deepclust --db)")
     ap.add_argument("-o", "--outdir", required=True, type=Path,
@@ -41,12 +43,22 @@ def deepclust2fa_main(argv=None):
     seq2cent = {}
     cent2seq = defaultdict(list)
     with open(args.clusters) as fh:
-        for rec in csv.reader(fh, dialect=tsv):
-            if rec[0] == "centroid" and rec[1] == "member":
-                continue
-            c, s = rec[0:2]
-            seq2cent[s] = c
-            cent2seq[c].append(s)
+        if args.orthofinder:
+            for line in fh:
+                og, seqs = line.split(":")
+                og = og.strip()
+                seqs = seqs.split(", ")
+                for seq in seqs:
+                    seq = seq.strip()
+                    seq2cent[seq] = og
+                    cent2seq[og].append(seq)
+        else:
+            for rec in csv.reader(fh, dialect=tsv):
+                if rec[0] == "centroid" and rec[1] == "member":
+                    continue
+                c, s = rec[0:2]
+                seq2cent[s] = c
+                cent2seq[c].append(s)
     cent2seq_new = {}
     seq2cent_new = {}
     for cent, seqs in cent2seq.items():
