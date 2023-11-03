@@ -15,6 +15,7 @@ from collections import namedtuple, Counter
 import gzip
 import urllib.request, urllib.parse, urllib.error
 from sys import stderr, stdout
+from copy import deepcopy
 
 from tqdm.auto import tqdm
 
@@ -82,7 +83,7 @@ def parseGFF3(filename, return_as=dict):
             yield return_as(**normalizedInfo)
             
 
-def gff_heirarchy(filename, progress=None):
+def gff_heirarchy(filename, progress=None, make_missing_genes=False):
     last = {"l1": None, "l2": None, "l3": None}
     level_canonicaliser = {
         "transcript": "mRNA",
@@ -108,6 +109,7 @@ def gff_heirarchy(filename, progress=None):
     records = {}
     l2l1 = {}
     i = 0
+    warned = set()
     recordsrc =  parseGFF3(filename, return_as=dict)
     if progress is not None:
         if progress == True:
@@ -115,7 +117,7 @@ def gff_heirarchy(filename, progress=None):
         else:
             desc=progress
         recordsrc = tqdm(recordsrc, desc=desc)
-    for record in recordsrc:
+    for i, record in enumerate(recordsrc):
         typ = record["type"]
         typ = level_canonicaliser.get(typ, typ)
         record["type"] = typ
@@ -127,13 +129,30 @@ def gff_heirarchy(filename, progress=None):
             if typ not in ignore:
                 print(f"WARNING: {typ} is not a nice feature, skipping", file=stderr)
             continue
-        id = record["attributes"]["ID"]
+        try:
+            id = record["attributes"]["ID"]
+        except:
+            if "fakeid" not in warned:
+                print(f"WARNING: no id for {record}, faked to fakeid{i}")
+                warned.add("fakeid")
+            id = f"fakeid{i}"
         if lvl == "l1":
             record["children"] = {}
             records[id] = record
             i = 0
         elif lvl == "l2":
-            parent = record["attributes"]["Parent"]
+            try:
+                parent = record["attributes"]["Parent"]
+            except KeyError:
+                if make_missing_genes:
+                    parent = f"fakegenefor_{id}"
+                    record["attributes"]["Parent"] = parent
+                    records[parent] = deepcopy(record)
+                    records[parent]["type"] = "gene"
+                    records[parent]["attributes"] = {"ID": parent}
+                    records[parent]["children"] = {}
+                else:
+                    parent = None
             l2l1[id] = parent
             record["children"] = {}
             try:
