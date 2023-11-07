@@ -215,6 +215,12 @@ def reformat_names(gene, geneid=None, changenames=True):
             #print("H", gcid, gchild["attributes"]["Name"])
     
 
+def write_gff_line(line, file=None):
+    attr = ";".join(f"{k}={v}" for k, v in line["attributes"].items())
+    cols = [line.get(f, ".") for f in gffInfoFields[:-1]] + [attr]
+    cols = ["." if x is None else x for x in cols]
+    print(*cols, file=file, sep="\t")
+
 def write_line(entry, file):
     x = [entry[field] if entry[field] is not None else "." for i, field in enumerate(gffInfoFields)]
     x[-1] = attr2line(x[-1])

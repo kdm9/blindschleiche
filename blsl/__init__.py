@@ -25,11 +25,6 @@ cmds["mask2bed"] = mask2bed_main
 from .genigvjs import genigvjs_main
 cmds["genigvjs"] = genigvjs_main
 
-from .liftoff_gff3 import liftoff_gff3_main
-cmds["liftoff-gff3"] = liftoff_gff3_main
-
-from .gfftagsane import main as gfftagsane_main
-cmds["gfftagsane"] = gfftagsane_main
 
 from .pansn_rename import main as pansn_rename_main
 cmds["pansn-rename"] = pansn_rename_main
@@ -75,6 +70,15 @@ cmds["galhist"] = galhist_main
 
 from .gffcat import gffcat_main
 cmds["gffcat"] = gffcat_main
+
+from .gffcsqify import main as gffcsqify_main
+cmds["gffcsqify"] = gffcsqify_main
+
+from .liftoff_gff3 import liftoff_gff3_main
+cmds["liftoff-gff3"] = liftoff_gff3_main
+
+from .gfftagsane import main as gfftagsane_main
+cmds["gfftagsane"] = gfftagsane_main
 
 
 from .pairslash import main as pairslash_main
