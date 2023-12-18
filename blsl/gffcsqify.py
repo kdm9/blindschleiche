@@ -17,7 +17,7 @@ def main(argv=None):
                 id = entry["attributes"]["ID"]
                 entry["attributes"]["ID"] = f"gene:{id}"
                 entry["attributes"]["biotype"] =  "protein_coding"  # FIXME properly parse this
-            elif entry["type"] in ("mRNA",):
+            elif entry["type"] in ("mRNA", ):
                 id = entry["attributes"]["ID"]
                 parent = entry["attributes"]["Parent"]
                 entry["attributes"]["ID"] = f"transcript:{id}"

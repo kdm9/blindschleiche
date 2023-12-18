@@ -9,8 +9,9 @@ Format specification source:
 http://www.sequenceontology.org/gff3.shtml
 
 Version 1.1: Python3 ready
-Version 2.0: @kdm9's version. Add code for comparison & normalisationG
+Version 2.0: @kdm9's version. Add code for comparison & normalisation
 """
+import argparse
 from collections import namedtuple, Counter
 import gzip
 import urllib.request, urllib.parse, urllib.error
@@ -128,6 +129,7 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
         if lvl is None:
             if typ not in ignore:
                 print(f"WARNING: {typ} is not a nice feature, skipping", file=stderr)
+                ignore.add(typ)
             continue
         try:
             id = record["attributes"]["ID"]
@@ -279,10 +281,23 @@ def feature_distance(a, b, ftype):
         dist += x[1] - x[0]
     return dist
 
+
+def gffparse_main(argv=None):
+    """Format a GFF sanely"""
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-o", "--output", default="/dev/stdout",
+            help="Output GFF compatible with bcftools csq")
+    ap.add_argument("-c", "--prefix-chrom", action="store_true",
+            help="Prefix gene names with chromsome name (e.g. useful for concatenating augustus results)")
+    ap.add_argument("input", help="Input GFF")
+    args = ap.parse_args(argv)
+
+    with open(args.output, "w") as fh:
+        for _, gene in tqdm(gff_heirarchy(args.input, progress="Parse   ").items(), desc="Process "):
+            if args.prefix_chrom:
+                newgid = f"{gene['seqid']}_{gene['attributes']['ID']}"
+                reformat_names(gene, geneid=newgid, changenames=False)
+            write_gene(gene, file=fh)
+
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="The GFF3 input file (.gz allowed)")
-    args = parser.parse_args()
-    import json
-    json.dump(gff_heirarchy(args.file), stdout, indent=4)
+    gffparse_main()

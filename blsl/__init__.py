@@ -71,6 +71,10 @@ cmds["galhist"] = galhist_main
 from .gffcat import gffcat_main
 cmds["gffcat"] = gffcat_main
 
+from .gffparse import gffparse_main
+cmds["gffparse"] = gffparse_main
+
+
 from .gffcsqify import main as gffcsqify_main
 cmds["gffcsqify"] = gffcsqify_main
 
