@@ -22,7 +22,7 @@ from tqdm.auto import tqdm
 
 __author__  = "Uli Köhler"
 __license__ = "Apache License v2.0"
-__version__ = "1.1"
+__version__ = "2.1"
 
 #Initialized GeneInfo named tuple. Note: namedtuple is immutable
 gffInfoFields = ["seqid", "source", "type", "start", "end", "score", "strand", "phase", "attributes"]
@@ -286,18 +286,32 @@ def gffparse_main(argv=None):
     """Format a GFF sanely"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--output", default="/dev/stdout",
-            help="Output GFF compatible with bcftools csq")
+            help="Output file")
+    ap.add_argument("-t", "--tabular", action="store_true",
+            help="Convert gff including attributes to simple TSV")
     ap.add_argument("-c", "--prefix-chrom", action="store_true",
             help="Prefix gene names with chromsome name (e.g. useful for concatenating augustus results)")
     ap.add_argument("input", help="Input GFF")
     args = ap.parse_args(argv)
 
     with open(args.output, "w") as fh:
-        for _, gene in tqdm(gff_heirarchy(args.input, progress="Parse   ").items(), desc="Process "):
-            if args.prefix_chrom:
-                newgid = f"{gene['seqid']}_{gene['attributes']['ID']}"
-                reformat_names(gene, geneid=newgid, changenames=False)
-            write_gene(gene, file=fh)
+        if args.tabular:
+            records =  list(tqdm(parseGFF3(args.input, return_as=dict), desc="Parse GFF"))
+            fields = set()
+            for line in records:
+                fields.update(line["attributes"].keys())
+            print(*gffInfoFields[:-1], *fields, sep="\t", file=fh)
+            for line in tqdm(records, desc="Tabularise"):
+                cols = [line[x] for x in gffInfoFields[:-1]] + [line["attributes"].get(x) for x in fields]
+                cols = [x if x is not None else "" for x in cols]
+                print(*cols, sep="\t", file=fh)
+        else:
+            gff = gff_heirarchy(args.input, progress="Parse   ")
+            for _, gene in tqdm(gff.items(), desc="Process "):
+                if args.prefix_chrom:
+                    newgid = f"{gene['seqid']}_{gene['attributes']['ID']}"
+                    reformat_names(gene, geneid=newgid, changenames=False)
+                write_gene(gene, file=fh)
 
 if __name__ == "__main__":
     gffparse_main()
