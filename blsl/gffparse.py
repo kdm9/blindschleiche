@@ -17,6 +17,7 @@ import gzip
 import urllib.request, urllib.parse, urllib.error
 from sys import stderr, stdout
 from copy import deepcopy
+import re
 
 from tqdm.auto import tqdm
 
@@ -33,22 +34,27 @@ ontological_order = [
     "exon", "pseudogenic_exon", "five_prime_UTR", "three_prime_UTR", "CDS", "pseudogenic_CDS",
 ]
 
-def parseGFFAttributes(attributeString):
+def parseGFFAttributes(attributeString, lax=False):
     """Parse the GFF3 attribute column and return a dict"""#
     if attributeString == ".": return {}
     ret = {}
-    for attribute in attributeString.split(";"):
-        if "=" in attribute:
-            key, value = attribute.split("=")
-        else:
-            key = attribute
-            value = "True"
+    if lax:
+        # The idea here is to split not just on ;, but on whole ;key=XXXXXX
+        # sections. This allows e.g. unescaped ; etc in the attrs column
+        attrs = re.findall(r"(^|(?<=;))([\w_-]+)=(.+?)((?=;[\w_-]+=)|$)", attributeString)
+        attrs = [(x[1], x[2]) for x in attrs]
+    else:
+        attrs = [x.partition("=") for x in attributeString.split(";")]
+        attrs = [(x[0], x[2]) for x in attrs]
+    for key, value in attrs:
         if not key and not value:
             continue
+        if not value:
+            value = "True"
         ret[urllib.parse.unquote(key)] = urllib.parse.unquote(value)
     return ret
 
-def parseGFF3(filename, return_as=dict):
+def parseGFF3(filename, return_as=dict, lax=False):
     """
     A minimalistic GFF3 format parser.
     Yields objects that contain info about a single GFF3 feature.
@@ -77,7 +83,7 @@ def parseGFF3(filename, return_as=dict):
                 "score": None if parts[5] == "." else float(parts[5]),
                 "strand": None if parts[6] == "." else urllib.parse.unquote(parts[6]),
                 "phase": None if parts[7] == "." else urllib.parse.unquote(parts[7]),
-                "attributes": parseGFFAttributes(parts[8])
+                "attributes": parseGFFAttributes(parts[8], lax=True)
             }
             #Alternatively, you can emit the dictionary here, if you need mutability:
             #    yield normalizedInfo
@@ -85,7 +91,6 @@ def parseGFF3(filename, return_as=dict):
             
 
 def gff_heirarchy(filename, progress=None, make_missing_genes=False):
-    last = {"l1": None, "l2": None, "l3": None}
     level_canonicaliser = {
         "transcript": "mRNA",
     }
@@ -106,9 +111,11 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
     ignore = {
         "source",
         "stop_codon",
+        "start_codon",
     }
     records = {}
     l2l1 = {}
+    last = {"l1": None, "l2": None, "l3": None}
     i = 0
     warned = set()
     recordsrc =  parseGFF3(filename, return_as=dict)
@@ -163,7 +170,7 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
                 print(f"L2 entry {id} parent {parent} not in records? {record}")
         else:
             try:
-                parent = record["attributes"]["Parent"]
+                parent = record["attributes"].get("Parent", records["attributes"].get("transcript_id", None))
                 top = l2l1[parent]
                 if id in records[top]["children"][parent]["children"]:
                     i += 1
@@ -218,7 +225,7 @@ def reformat_names(gene, geneid=None, changenames=True):
     
 
 def write_gff_line(line, file=None):
-    attr = ";".join(f"{k}={v}" for k, v in line["attributes"].items())
+    attr = ";".join(f"{k}={urllib.parse.quote(v)}" for k, v in line["attributes"].items())
     cols = [line.get(f, ".") for f in gffInfoFields[:-1]] + [attr]
     cols = ["." if x is None else x for x in cols]
     print(*cols, file=file, sep="\t")
@@ -291,6 +298,8 @@ def gffparse_main(argv=None):
             help="Convert gff including attributes to simple TSV")
     ap.add_argument("-c", "--prefix-chrom", action="store_true",
             help="Prefix gene names with chromsome name (e.g. useful for concatenating augustus results)")
+    ap.add_argument("-g", "--make-missing-genes", action="store_true",
+            help="Invent Fake L1 'gene' entries for any L2 lacking an L1 parent")
     ap.add_argument("input", help="Input GFF")
     args = ap.parse_args(argv)
 
@@ -306,10 +315,10 @@ def gffparse_main(argv=None):
                 cols = [x if x is not None else "" for x in cols]
                 print(*cols, sep="\t", file=fh)
         else:
-            gff = gff_heirarchy(args.input, progress="Parse   ")
+            gff = gff_heirarchy(args.input, progress="Parse   ", make_missing_genes=args.make_missing_genes)
             for _, gene in tqdm(gff.items(), desc="Process "):
                 if args.prefix_chrom:
-                    newgid = f"{gene['seqid']}_{gene['attributes']['ID']}"
+                    newgid = f"{gene['seqid'].replace('#', '_')}_{gene['attributes']['ID']}"
                     reformat_names(gene, geneid=newgid, changenames=False)
                 write_gene(gene, file=fh)
 

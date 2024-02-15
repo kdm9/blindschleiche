@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 import subprocess
 from base64 import b64encode 
+import shutil
+
+
 def get_data_uri(data):
     if isinstance(data, str) or isinstance(data, Path):
         data = Path(data)
@@ -52,21 +55,27 @@ default_template = """
 </body>
 """
 
-def link(linkpath, target):
+def link(linkpath, target, copy=False):
     linkpath = Path(linkpath)
     target = Path(target).absolute()
-    try:
-        if linkpath.samefile(target):
-            return
-    except:
-        pass
-    linkpath.symlink_to(target)
+    if copy:
+        linkpath.parent.mkdir(exist_ok=True)
+        shutil.copyfile(target, linkpath)
+    else:
+        try:
+            if linkpath.samefile(target):
+                return
+        except:
+            pass
+        linkpath.symlink_to(target)
 
 def genigvjs_main(argv=None):
     """Generate a simple IGV.js visualisation of some bioinf files."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--template", "-T", required=False,
             help="Alternative HTML template")
+    ap.add_argument("--copy", "--cp", action="store_true",
+            help="Copy, don't link, data to output dir")
     ap.add_argument("--embed", "-e", action="store_true",
             help="Encode data as base64 within html (almost always a bad idea on non-toy datasets).")
     ap.add_argument("--prefix", "-p", default="./",
@@ -113,8 +122,8 @@ def genigvjs_main(argv=None):
         data["reference"].update({
             "fastaURL": f"{args.prefix}{ref.name}",
         })
-        link(outdir / ref.name, ref)
-        link(outdir / (ref.name + ".fai"), reffai)
+        link(outdir / ref.name, ref, copy=args.copy)
+        link(outdir / (ref.name + ".fai"), reffai, copy=args.copy)
     cbpaired = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c',
                 '#fdbf6f','#ff7f00','#cab2d6','#6a3d9a', '#b15928']
     for i, track in enumerate(args.tracks):
@@ -129,8 +138,8 @@ def genigvjs_main(argv=None):
             index = Path(str(track) + ".bai")
         else:
             index = Path(str(track) + ".tbi")
-            if not index.exists():
-                index = None
+        if not index.exists():
+            index = None
         trackdat = {
             "name": base,
             "format": format,
@@ -145,10 +154,10 @@ def genigvjs_main(argv=None):
                 trackdat["indexURL"] = get_data_uri(index)
         else:
             trackdat["url"] =  f"{args.prefix}{track.name}"
-            link(outdir / track.name, track)
+            link(outdir / track.name, track, copy=args.copy)
             if index is not None:
                 trackdat["indexURL"] =  f"{args.prefix}{index.name}"
-                link(outdir / index.name, index)
+                link(outdir / index.name, index, copy=args.copy)
         data["tracks"].append(trackdat)
     with open(outdir / "index.html", "w") as fh:
         html = template \
