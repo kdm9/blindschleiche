@@ -30,7 +30,7 @@ gffInfoFields = ["seqid", "source", "type", "start", "end", "score", "strand", "
 GFFRecord = namedtuple("GFFRecord", gffInfoFields)
 
 ontological_order = [
-    "chromosome", "gene", "pseudogene", "pseudogenic_region", "mRNA", "transcript", "pseudogeneic_transcript",
+    "chromosome", "gene", "pseudogene", "pseudogenic_region", "mRNA", "transcript", "pseudogenic_transcript",
     "exon", "pseudogenic_exon", "five_prime_UTR", "three_prime_UTR", "CDS", "pseudogenic_CDS",
 ]
 
@@ -97,10 +97,11 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
     levels = {
         "repeat_region": "l1",
         "pseudogene": "l1",
-        "pseuodgenic_region": "l1",
+        "pseudogenic_region": "l1",
         "transposable_element_gene": "l1",
         "gene": "l1",
         "tRNA": "l2",
+        "pseudogenic_transcript": "l2",
         "tmRNA": "l2",
         "mRNA": "l2",
         "exon": "l3",
@@ -170,7 +171,7 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
                 print(f"L2 entry {id} parent {parent} not in records? {record}")
         else:
             try:
-                parent = record["attributes"].get("Parent", records["attributes"].get("transcript_id", None))
+                parent = record["attributes"].get("Parent", record["attributes"].get("transcript_id", None))
                 top = l2l1[parent]
                 if id in records[top]["children"][parent]["children"]:
                     i += 1
