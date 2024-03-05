@@ -22,11 +22,10 @@ def main(argv=None):
                 samples[sample][run] = {read: path}
             else:
                 samples[sample][run][read] = path
-    #json.dump(samples, stdout, indent=2)
-    print("library", "run", "read1_uri", "read2_uri", file=stdout, sep='\t')
+    print("library", "run", "sample", "read1_uri", "read2_uri", file=stdout, sep='\t')
     for sample, dat in samples.items():
         for run, reads in dat.items():
-            print(sample, run, reads["R1"], reads["R2"], file=stdout, sep='\t')
+            print(sample, run, sample, reads["R1"], reads["R2"], file=stdout, sep='\t')
 
 
 if __name__ == "__main__":
