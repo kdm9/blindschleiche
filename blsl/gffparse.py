@@ -306,7 +306,7 @@ def gffparse_main(argv=None):
 
     with open(args.output, "w") as fh:
         if args.tabular:
-            records =  list(tqdm(parseGFF3(args.input, return_as=dict), desc="Parse GFF"))
+            records =  list(tqdm(parseGFF3(args.input, return_as=dict), desc="Parse GFF", item="line"))
             fields = set()
             for line in records:
                 fields.update(line["attributes"].keys())
