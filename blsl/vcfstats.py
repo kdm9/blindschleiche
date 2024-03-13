@@ -54,25 +54,22 @@ def one_chunk_stats(vcf, chunk, fill=True):
     return res
 
 def chunkwise_bcfools_stats(args):
-    res = []
     with ProcessPoolExecutor(args.threads) as exc:
         jobs = []
         for region in parallel_regions(args.vcf):
             jobs.append(exc.submit(one_chunk_stats, args.vcf, region, fill=args.fill_tags_first))
         for job in tqdm(as_completed(jobs), total=len(jobs), unit="chunk"):
-            res.extend(job.result())
-    return res
+            for res in job.result()
+                if args.fields:
+                    res = {k: dat[k] for k in fields if k in dat}
+                print(json.dumps(res), file=args.output)
 
-def filter_fields(dat, fields=None):
-    if fields is None:
-        return dat
-    return {k: dat[k] for k in fields if k in dat}
 
 def main(argv=None):
     """Use bcftools to calculate various statistics, outputing an R-ready table"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-o", "--output", default=stdout, type=argparse.FileType("wt"),
-            help="Output TSV file")
+            help="Output jsonlines file")
     ap.add_argument("-f", "--fields", nargs="+",
             help="Use only these fields")
     ap.add_argument("-F", "--fill-tags-first", action="store_true",
@@ -83,15 +80,8 @@ def main(argv=None):
     ap.add_argument("vcf")
     args = ap.parse_args(argv)
 
-    #if args.fill_tags_first:
-    #    variants = bcftools_info_with_tags(args.vcf)
-    #else:
-    variants = chunkwise_bcfools_stats(args)
-    if args.fields:
-        variants = [filter_fields(x, args.fields) for x in variants]
+    chunkwise_bcfools_stats(args)
 
-    df = pd.DataFrame(variants)
-    df.to_csv(args.output, sep="\t", index=False)
 
 if __name__ == "__main__":
     main()
