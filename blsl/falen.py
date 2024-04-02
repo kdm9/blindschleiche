@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-from sys import argv
 import argparse
 
 from Bio import SeqIO
 
-def falen_main(argv):
+def falen_main(argv=None):
     """Tabulate the lengths of sequences in a FASTA file"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-t", "--total", action="store_true",

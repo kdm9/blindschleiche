@@ -16,7 +16,7 @@ def fqpair(stream):
     if len(fqp) == 8:
         yield fqp
 
-def main(argv):
+def main(argv=None):
     """Sample a fraction of read pairs from an interleaved fastq file
     """
     import argparse

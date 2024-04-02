@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-from sys import argv
 import argparse
 
 from Bio import SeqIO
 
-def farename_main(argv):
+def farename_main(argv=None):
     """Rename sequences in a fasta file sequentially"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-p", "--prefix", type=str, default="",
