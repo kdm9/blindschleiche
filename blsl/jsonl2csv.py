@@ -13,6 +13,7 @@ except ImportError:
     import json
 
 def main(argv=None):
+    """Parse jsonlines into a C/TSV"""
     ap = argparse.ArgumentParser()
     ap.add_argument("--fraction", "-f", type=float,
             help="Subsample this fraction of rows (0-1)")
