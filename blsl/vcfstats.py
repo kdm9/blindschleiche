@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 from tqdm import tqdm
 from cyvcf2 import VCF
-import pandas as pd
 
 import sys
 from sys import stdin, stdout, stderr
 from subprocess import Popen, PIPE
 import argparse
 import math
+import json
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def parallel_regions(vcf, cores=1):
     V = VCF(vcf)
     # 10 chunks per chrom per core
-    chunks = len(V.seqlens)*10*cores
+    chunks = len(V.seqlens)*100*cores
     for cname, clen in zip(V.seqnames, V.seqlens):
-        chunk = int(math.ceil(clen/chunks))
+        chunk = 10000#int(math.ceil(clen/chunks))
         for start in range(0, clen, chunk):
             s = start+1
             e = start+chunk+1
             yield f"{cname}:{s}-{e}"
 
-def variant2dict(v):
+def variant2dict(v, fields=None):
     for i, alt in enumerate(v.ALT):
         dat = {"CHROM": v.CHROM, "POS": v.POS, "REF": v.REF, "ALT": alt, "QUAL": v.QUAL}
         dat["call_rate"] = v.call_rate
@@ -31,38 +31,35 @@ def variant2dict(v):
             if isinstance(val, tuple) or isinstance(val, list):
                 val = val[i]
             dat[f"INFO_{key}"] = val
-        yield dat
+        if fields:
+            dat = {K:V for K, V in dat.items() if K in fields}
+        yield json.dumps(dat)
 
-def bcftools_info_with_tags(vbcf):
-    res = []
-    cmd=f"bcftools +fill-tags {vbcf} -Ou -- -d -t all,F_MISSING"
-    with Popen(cmd, shell=True, stdout=PIPE) as proc:
-        for v in tqdm(VCF(proc.stdout)):
-            for r in variant2dict(v):
-                res.append(r)
-    return res
-
-def one_chunk_stats(vcf, chunk, fill=True):
+def one_chunk_stats(vcf, chunk, fill=True, fields=None):
     cmd=f"bcftools view -r {chunk} {vcf} -Ou"
     if fill:
         cmd = f"{cmd} | bcftools +fill-tags - -Ou -- -d -t all,F_MISSING"
     res = []
     with Popen(cmd, shell=True, stdout=PIPE) as proc:
-        for v in VCF(proc.stdout):
-            for r in variant2dict(v):
+        vcf = VCF(proc.stdout)
+        for v in vcf:
+            for r in variant2dict(v, fields=fields):
                 res.append(r)
+        del vcf
     return res
 
 def chunkwise_bcfools_stats(args):
-    with ProcessPoolExecutor(args.threads) as exc:
-        jobs = []
-        for region in parallel_regions(args.vcf):
-            jobs.append(exc.submit(one_chunk_stats, args.vcf, region, fill=args.fill_tags_first))
-        for job in tqdm(as_completed(jobs), total=len(jobs), unit="chunk"):
-            for res in job.result()
-                if args.fields:
-                    res = {k: dat[k] for k in fields if k in dat}
-                print(json.dumps(res), file=args.output)
+    regions = list(parallel_regions(args.vcf))
+    with tqdm(total=len(regions), unit="chunk") as pbar:
+        for i in range(0, len(regions), 10000):
+            to=min(len(regions), i+10000)
+            with ProcessPoolExecutor(args.threads) as exc:
+                jobs = (exc.submit(one_chunk_stats, args.vcf, region, fill=args.fill_tags_first, fields=args.fields) for region in regions[i:to])
+                for job in as_completed(jobs):
+                    pbar.update(1)
+                    for res in job.result():
+                        args.output.write(res)
+                        args.output.write("\n")
 
 
 def main(argv=None):

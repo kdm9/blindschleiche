@@ -10,6 +10,7 @@ __version__ = "0.2.4"
 
 cmds = {}
 
+
 from .telogrep import telogrep_main
 cmds["telogrep"] = telogrep_main
 
@@ -22,12 +23,11 @@ cmds["falen"] = falen_main
 from .mask2bed import mask2bed_main
 cmds["mask2bed"] = mask2bed_main
 
-from .genigvjs import genigvjs_main
-cmds["genigvjs"] = genigvjs_main
-
-
 from .pansn_rename import main as pansn_rename_main
 cmds["pansn-rename"] = pansn_rename_main
+
+from .genigvjs import genigvjs_main
+cmds["genigvjs"] = genigvjs_main
 
 from .ildemux import main as ildemux_main
 cmds["ildemux"] = ildemux_main
@@ -62,31 +62,30 @@ cmds["deepclust2fa"] = deepclust2fa_main
 from .farename import farename_main
 cmds["farename"] = farename_main
 
-from .ebiosra2rl2s import main as rl2s_main
-cmds["ebiosra2rl2s"] = rl2s_main
-
-from .galhist import main as galhist_main
-cmds["galhist"] = galhist_main
-
 from .gffcat import gffcat_main
 cmds["gffcat"] = gffcat_main
 
 from .gffparse import gffparse_main
 cmds["gffparse"] = gffparse_main
 
-
 from .gffcsqify import main as gffcsqify_main
 cmds["gffcsqify"] = gffcsqify_main
-
-from .liftoff_gff3 import liftoff_gff3_main
-cmds["liftoff-gff3"] = liftoff_gff3_main
 
 from .gfftagsane import main as gfftagsane_main
 cmds["gfftagsane"] = gfftagsane_main
 
+from .liftoff_gff3 import liftoff_gff3_main
+cmds["liftoff-gff3"] = liftoff_gff3_main
+
+from .ebiosra2rl2s import main as rl2s_main
+cmds["ebiosra2rl2s"] = rl2s_main
+
+from .galhist import main as galhist_main
+cmds["galhist"] = galhist_main
 
 from .pairslash import main as pairslash_main
 cmds["pairslash"] = pairslash_main
+
 
 try:
     from .vcfstats import main as vcfstats_main
@@ -103,6 +102,10 @@ cmds["shannon-entropy"] = shannon_main
 
 from .fastasanitiser import main as fastasanitiser_main
 cmds["fastasanitiser"] = fastasanitiser_main
+
+from .jsonl2csv import main as jsonl2csv_main
+cmds["jsonl2csv"] = jsonl2csv_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
