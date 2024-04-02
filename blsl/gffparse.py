@@ -31,7 +31,7 @@ GFFRecord = namedtuple("GFFRecord", gffInfoFields)
 
 ontological_order = [
     "chromosome", "gene", "pseudogene", "pseudogenic_region", "mRNA", "transcript", "pseudogenic_transcript",
-    "exon", "pseudogenic_exon", "five_prime_UTR", "three_prime_UTR", "CDS", "pseudogenic_CDS",
+    "intron", "exon", "pseudogenic_exon", "five_prime_UTR", "three_prime_UTR", "CDS", "pseudogenic_CDS",
 ]
 
 def parseGFFAttributes(attributeString, lax=False):
@@ -105,6 +105,7 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
         "tmRNA": "l2",
         "mRNA": "l2",
         "exon": "l3",
+        "intron": "l3",
         "CDS": "l3",
         "five_prime_UTR": "l3",
         "three_prime_UTR": "l3",
@@ -168,7 +169,9 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
             try:
                 records[parent]["children"][id] = record
             except KeyError:
-                print(f"L2 entry {id} parent {parent} not in records? {record}")
+                if "missing_l2" not in warned:
+                    print(f"L2 entry {id} parent {parent} not in records? {record}")
+                    warned.add("missing_l2")
         else:
             try:
                 parent = record["attributes"].get("Parent", record["attributes"].get("transcript_id", None))
@@ -179,7 +182,9 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
                     record["attributes"]["ID"] = id
                 records[top]["children"][parent]["children"][id] = record
             except KeyError:
-                print(f"L3 entry {id} parent not in records? {record}")
+                if "missing_l3" not in warned:
+                    print(f"L3 entry {id} parent '{parent}' not in GFF?")
+                    warned.add("missing_l3")
     return records
 
 
