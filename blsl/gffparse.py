@@ -175,7 +175,25 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
         else:
             try:
                 parent = record["attributes"].get("Parent", record["attributes"].get("transcript_id", None))
-                top = l2l1[parent]
+                if parent in records and not parent in l2l1 and make_missing_genes:
+                    # We have L1 -> L3 only
+                    if "made_l2" not in warned:
+                        print("Made a fake mRNA for L2-less gene")
+                        warned.add("made_l2")
+                    new_parent = f"fakemrna_{parent}"
+                    if new_parent not in l2l1:
+                        new_mrna = deepcopy(records[parent])
+                        new_mrna["type"] = "mRNA"
+                        new_mrna["attributes"] = {"ID": new_parent, "Parent": parent}
+                        new_mrna["children"] = {}
+                        record["attributes"]["Parent"] = new_parent
+                        l2l1[new_parent] = records[parent]
+                        records[parent]["children"][new_parent] = new_mrna
+                    top = parent
+                    parent = new_parent
+                    record["attributes"]["Parent"] = parent
+                else:
+                    top = l2l1[parent]
                 if id in records[top]["children"][parent]["children"]:
                     i += 1
                     id = f"{id}_{i}"
