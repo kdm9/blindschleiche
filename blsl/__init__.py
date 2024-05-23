@@ -1,5 +1,4 @@
-# Copyright (c) 2022 Dr. K. D. Murray/Gekkonid Consulting <spam@gekkonid.com>
-#
+# Copyright (c) 2022 Dr. K. D. Murray/Gekkonid Consulting <spam@gekkonid.com> 
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -102,6 +101,9 @@ cmds["shannon-entropy"] = shannon_main
 
 from .fastasanitiser import main as fastasanitiser_main
 cmds["fastasanitiser"] = fastasanitiser_main
+
+from .tidyqc import main as tidyqc_main
+cmds["tidyqc"] = tidyqc_main
 
 from .jsonl2csv import main as jsonl2csv_main
 cmds["jsonl2csv"] = jsonl2csv_main
