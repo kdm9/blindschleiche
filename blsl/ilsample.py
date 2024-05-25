@@ -6,15 +6,7 @@ from collections import Counter
 import random
 import gzip
 
-def fqpair(stream):
-    fqp = list()
-    for line in stream:
-        fqp.append(line)
-        if len(fqp) == 8:
-            yield fqp
-            fqp = list()
-    if len(fqp) == 8:
-        yield fqp
+from ._utils import fqparse
 
 def main(argv=None):
     """Sample a fraction of read pairs from an interleaved fastq file
@@ -27,6 +19,8 @@ def main(argv=None):
             help='Fraction of reads to sample')
     ap.add_argument("-i", "--input", type=Path, default="/dev/fd/0",
             help="Input fastq file")
+    ap.add_argument("-s", "--singleend", action="store_const", const=4, default=8, dest="nlines",
+            help="Single-end reads (default: paired end, interleaved)")
     args=ap.parse_args(argv)
     
     if args.input.suffix == ".gz":
@@ -36,7 +30,7 @@ def main(argv=None):
 
     total = 0
     sampled = 0
-    for pair in tqdm(fqpair(stream), unit="read pairs"):
+    for pair in tqdm(fqparse(stream, args.nlines), unit="read pairs"):
         total += 1
         if random.random() < args.frac:
             sampled += 1

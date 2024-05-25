@@ -5,7 +5,7 @@ from sys import stdin
 from tqdm import tqdm
 from collections import Counter
 
-from ._utils import fqpair, rc
+from ._utils import fqparse, rc
 
 def hamming_cloud(seq, distance=1):
     """Generate DNA seqs whose Hamming distance from seq is <= distance
@@ -50,10 +50,10 @@ class ByteBucket(object):
     """
     threads = 32
     ziplevel = 6
-    def biff2pigz(self, bytes, outfile):
+    def biff2pigz(self, somebytes, outfile):
         from subprocess import Popen, PIPE
         with Popen(["pigz", "-n", "-p", str(self.threads), f"-{self.ziplevel}"], stdin=PIPE, stdout=outfile, bufsize=0) as proc:
-            proc.stdin.write(bytes)
+            proc.stdin.write(somebytes)
 
     def __init__(self, outfile, size=2**27, sname=""):
         self.outfile = str(outfile)
@@ -68,7 +68,7 @@ class ByteBucket(object):
     def write(self, somebytes):
         if self.first:
             # test write
-            with open(self.outfile, "wb") as fh:
+            with open(self.outfile, "wb"):
                 pass
             self.first = False
         if isinstance(somebytes, str):
@@ -80,8 +80,10 @@ class ByteBucket(object):
 
     def flush(self):
         if len(self.buf.getbuffer()) > 0:
-            assert(self.first)
-            with open(self.outfile, "ab", buffering=0) as fh:
+            #assert(self.first)
+            mode = "wb" if self.first else "ab"
+            self.first=False
+            with open(self.outfile, mode, buffering=0) as fh:
                 if self.outfile.endswith(".gz"):
                     self.biff2pigz(self.buf.getbuffer(), fh)
                 else:
@@ -98,11 +100,15 @@ def gethdrdat(hdr):
 
 def fqp2idx(fqp):
     """fastq pair to index pair ACGT+ACGT"""
-    s1, i1, ip1 = gethdrdat(fqp[0])
-    s2, i2, ip2 = gethdrdat(fqp[4])
-    assert(s1 == s2)
-    assert(ip1 == ip2)
-    return ip1
+    if len(fqp) == 4:
+        s1, _, ip1 = gethdrdat(fqp[0])
+        return ip1
+    else:
+        assert(len(fqp)==8)
+        s1, _, ip1 = gethdrdat(fqp[0])
+        s2, _, ip2 = gethdrdat(fqp[4])
+        assert(s1==s2 and ip1==ip2)
+        return ip1
 
 def make_sample_map(tablefile, outdir, fileext=".fq", distance=1):
     from csv import DictReader
@@ -135,12 +141,16 @@ def main(argv=None):
             help="Output directory (must exist)")
     ap.add_argument("-c", "--justcount", action="store_true",
             help="Write nothing, only tablulate (largely useless)")
+    ap.add_argument("-g", "--guess", action="store_true",
+            help="Write nothing, tablulate all indicies found (don't need a keyfile)")
     ap.add_argument("-z", "--zip", nargs="?", default=None, const=6, type=int,
-            help="Compress outputs with gzip.")
+            help="Compress outputs with pigz (must be installed).")
     ap.add_argument("-j", "--threads", default=8,
             help="Number of compression threads")
     ap.add_argument("-m", "--mismatch", default=1, type=int,
             help="Number tolerable mismatches (hamming distance).")
+    ap.add_argument("-s", "--singleend", action="store_const", const=4, default=8, dest="nlines",
+            help="Single-end reads (default: paired end, interleaved)")
     ap.add_argument("-k", "--keyfile",
             help="Mapping of i7/i5 -> sample as tsv (with cols i7, i5, sample)")
     args=ap.parse_args(argv)
@@ -149,21 +159,30 @@ def main(argv=None):
     if args.zip is not None:
         ByteBucket.ziplevel = args.zip
 
+    if args.guess:
+        args.justcount=True
+
     fileext = "il.fastq.gz" if args.zip is not None else "il.fastq"
 
-    samps = make_sample_map(args.keyfile, args.outdir, fileext=fileext, distance=args.mismatch)
-    print("set up sample map with", len(samps), "mappings of barcodes to files")
+    if not args.guess:
+        samps = make_sample_map(args.keyfile, args.outdir, fileext=fileext, distance=args.mismatch)
+        print("set up sample map with", len(samps), "mappings of barcodes to files")
+    
+    if not args.justcount:
+        file_undef = ByteBucket(args.outdir/f"undefined.{fileext}", sname="undefined")
+        file_undef.sname = "undefined"
 
     stats = Counter()
-    file_undef = ByteBucket(args.outdir/f"undefined.{fileext}", sname="undefined")
-    file_undef.sname = "undefined"
     try:
-        for i, pair in enumerate(tqdm(fqpair(stdin))):
+        for pair in tqdm(fqparse(stdin, n=args.nlines)):
             idxpair = fqp2idx(pair)
-            ofile = samps.get(idxpair, file_undef)
-            if not args.justcount:
-                ofile.writelines(pair)
+            if args.guess:
+                stats[idxpair] += 1
+                continue
             stats[ofile.sname] += 1
+            if not args.justcount:
+                ofile = samps.get(idxpair, file_undef)
+                ofile.writelines(pair)
     finally:
         with open(args.outdir / "stats.tsv", "w") as fh:
             print("sample", "n_pairs", file=fh, sep="\t")
