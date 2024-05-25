@@ -5,7 +5,7 @@ from sys import stdin
 from tqdm import tqdm
 from collections import Counter
 
-from ._utils import fqparse, rc
+from ._utils import fqparse
 
 def hamming_cloud(seq, distance=1):
     """Generate DNA seqs whose Hamming distance from seq is <= distance
@@ -120,7 +120,7 @@ def make_sample_map(tablefile, outdir, fileext=".fq", distance=1):
             opath = outdir / f"{sname}.{fileext}"
             bucket = ByteBucket(opath, sname=sname)
             for i7, i5 in product(hamming_cloud(sample["i7"], distance=distance),
-                                  hamming_cloud(rc(sample["i5"]), distance=distance)):
+                                  hamming_cloud(sample["i5"], distance=distance)):
                 i7plusi5 = f"{i7}+{i5}"
                 if i7plusi5 in smap:
                     print("ERROR: duplicate i7+i5. reduce -m or cry into your beer.")
@@ -168,7 +168,6 @@ def main(argv=None):
         samps = make_sample_map(args.keyfile, args.outdir, fileext=fileext, distance=args.mismatch)
         print("set up sample map with", len(samps), "mappings of barcodes to files")
     
-    if not args.justcount:
         file_undef = ByteBucket(args.outdir/f"undefined.{fileext}", sname="undefined")
         file_undef.sname = "undefined"
 
@@ -179,9 +178,9 @@ def main(argv=None):
             if args.guess:
                 stats[idxpair] += 1
                 continue
+            ofile = samps.get(idxpair, file_undef)
             stats[ofile.sname] += 1
             if not args.justcount:
-                ofile = samps.get(idxpair, file_undef)
                 ofile.writelines(pair)
     finally:
         with open(args.outdir / "stats.tsv", "w") as fh:
