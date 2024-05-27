@@ -63,7 +63,8 @@ class ByteBucket(object):
         self.sname = sname
 
     def writelines(self, lines):
-        self.write("".join(lines).encode('ascii'))
+        self.write("\n".join(lines).encode('ascii'))
+        self.write(b"\n")
 
     def write(self, somebytes):
         if self.first:
@@ -184,7 +185,7 @@ def main(argv=None):
                 ofile.writelines(pair)
     finally:
         with open(args.outdir / "stats.tsv", "w") as fh:
-            print("sample", "n_pairs", file=fh, sep="\t")
+            print("sample", "nspots", file=fh, sep="\t")
             for samp, n in stats.most_common():
                 print(samp, n, file=fh, sep="\t")
 
