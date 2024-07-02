@@ -117,7 +117,7 @@ def merge_results(args, filestomerge):
 
 
 def main(argv=None):
-    """Use bcftools to calculate various statistics, outputing an R-ready table"""
+    """Parallelise a bcf processing pipeline across regions"""
     ap = argparse.ArgumentParser()
     ap.add_argument("-R", "--regions", type=argparse.FileType("rt"),
             help="Use regions defined in this BED file. NB! Will only do these regions and will not check for overlaps. Be careful. Cols should be chrom, start0, end, ... and tab separated (i.e. a BED file).")

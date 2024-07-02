@@ -46,7 +46,7 @@ Where <subtool> is one of:
   galhist:              Make a summary histogram of git-annex-list output
   pairslash:            Add an old-style /1 /2 pair indicator to paired-end fastq files
   vcfstats:             Use bcftools to calculate various statistics, outputing an R-ready table
-  vcfparallel:          Use bcftools to calculate various statistics, outputing an R-ready table
+  vcfparallel:          Parallelise a bcf processing pipeline across regions
   shannon-entropy:      Calculate Shannon's entropy (in bits) at each column of one or more alignments
   fastasanitiser:       Sanitise fasta IDs to something sane, then back again
   tidyqc:               What if MultiQC was in the tidyverse? (and much worse)
