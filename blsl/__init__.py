@@ -85,6 +85,9 @@ cmds["galhist"] = galhist_main
 from .pairslash import main as pairslash_main
 cmds["pairslash"] = pairslash_main
 
+from .pairs import main as pairs_main
+cmds["pairs"] = pairs_main
+
 
 try:
     from .vcfstats import main as vcfstats_main
