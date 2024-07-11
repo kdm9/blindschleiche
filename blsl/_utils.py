@@ -13,13 +13,14 @@ def fqparse(stream, n=4):
         else:
             with open(stream, "rt") as fh:
                 yield from fqparse(fh, n)
-    fqp = list()
-    for line in stream:
-        fqp.append(line.rstrip("\n"))
+    else:
+        fqp = list()
+        for line in stream:
+            fqp.append(line.rstrip("\n"))
+            if len(fqp) == n:
+                yield fqp
+                fqp = list()
         if len(fqp) == n:
             yield fqp
-            fqp = list()
-    if len(fqp) == n:
-        yield fqp
-    assert len(fqp) == 0
+        assert len(fqp) == 0
 
