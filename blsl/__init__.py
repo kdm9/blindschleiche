@@ -5,7 +5,7 @@
 
 from sys import argv, exit, stderr
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 cmds = {}
 
