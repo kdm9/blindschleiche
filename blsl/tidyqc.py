@@ -17,6 +17,8 @@ def as_rtype(rtype, val):
     return None
 
 class PatternMatcher:
+    name = "Base Class"
+    patterns = {}
     def match(self, file):
         if hasattr(self, "firstline"):
             with open(file) as fh:
