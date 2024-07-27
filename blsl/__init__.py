@@ -5,7 +5,8 @@
 
 from sys import argv, exit, stderr
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
+
 
 cmds = {}
 
@@ -89,15 +90,27 @@ from .pairs import main as pairs_main
 cmds["pairs"] = pairs_main
 
 
+
 try:
     from .vcfstats import main as vcfstats_main
     cmds["vcfstats"] = vcfstats_main
+except ImportError as exc:
+    if len(argv) < 2:
+        print(str(exc), "-- disabling vcfstats command", file=stderr)
 
+try:
     from .vcfparallel import main as vcfparallel_main
     cmds["vcfparallel"] = vcfparallel_main
 except ImportError as exc:
     if len(argv) < 2:
-        print(str(exc), "-- disabling vcfstats command", file=stderr)
+        print(str(exc), "-- disabling vcfparallel command", file=stderr)
+
+try:
+    from .vcfreport import main as vcfreport_main
+    cmds["vcfreport"] = vcfreport_main
+except ImportError as exc:
+    if len(argv) < 2:
+        print(str(exc), "-- disabling vcfreport command", file=stderr)
 
 from .shannon import main as shannon_main
 cmds["shannon-entropy"] = shannon_main
@@ -131,4 +144,3 @@ def main():
         mainhelp()
         exit(1)
     cmds[argv[1]](argv[2:])
-

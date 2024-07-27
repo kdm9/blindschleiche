@@ -10,6 +10,9 @@ dependencies = [
     "biopython",
     "cyvcf2",
     "pandas",
+    "scikit-learn",
+    "physt",
+    "plotly",
 ]
 dynamic = [
     "version",
