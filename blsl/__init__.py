@@ -74,6 +74,10 @@ cmds["gffcsqify"] = gffcsqify_main
 from .gfftagsane import main as gfftagsane_main
 cmds["gfftagsane"] = gfftagsane_main
 
+from .genebed import main as genebed_main
+cmds["genebed"] = genebed_main
+
+
 from .liftoff_gff3 import liftoff_gff3_main
 cmds["liftoff-gff3"] = liftoff_gff3_main
 
@@ -89,6 +93,8 @@ cmds["pairslash"] = pairslash_main
 from .pairs import main as pairs_main
 cmds["pairs"] = pairs_main
 
+from .fqstat import main as fqstat_main
+cmds["fqstat"] = fqstat_main
 
 
 try:
