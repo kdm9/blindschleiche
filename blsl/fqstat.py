@@ -14,7 +14,7 @@ from tqdm import tqdm
 def head(raw, size=1_000_000):
     return io.BytesIO(raw.read(size))
 
-@dataclass
+@dataclass(order=True)
 class FQStat:
     path: Path
     file_size: int
@@ -41,13 +41,21 @@ def estimate_fq_stats(fq, head_bytes=1_000_000):
                 readlens += len(seq) -1 
         except (EOFError, gzip.BadGzipFile):
             pass
-            #raise RuntimeError(f"BadGzipFile: {fq} after {n}")
         fsize = fq.stat().st_size
+        if n < 1:
+            return FQStat(path=fq, file_size=fsize, estimated_nreads=0, mean_read_len=0, mean_record_size=0, n_reads_sampled=n, bytes_per_record=0)
         estim_reads = fsize / bytes_read * n
         return FQStat(path=fq, file_size=fsize, estimated_nreads=round(estim_reads),
                       mean_read_len=readlens/n, mean_record_size=recsizes/n,
                       n_reads_sampled=n, bytes_per_record=bytes_read/n)
 
+
+def parse_fofn(file):
+    with open(file) as fh:
+        res = set()
+        for fn in fh:
+            res.add(fn.rstrip())
+        return res
 
 
 def main(argv=None):
@@ -59,9 +67,17 @@ def main(argv=None):
         help="Parallel CPUs")
     ap.add_argument("--head", "-b", type=int, default=20_000,
         help="Inspect the first N bytes (default: 20kb, R^2 is still ~1.0!. Increase to improve accuracy slightly, above 1e6 is pointless.)")
+    ap.add_argument("--fofn", "-f", action="store_true",
+        help="Treat args as files of file names (one per line")
     ap.add_argument("fastqs", nargs="+")
 
     args = ap.parse_args(argv)
+
+    if args.fofn:
+        res = set()
+        for fofn in args.fastqs:
+            res.update(parse_fofn(fofn))
+        args.fastqs = list(sorted(res))
 
     results = []
     with ProcessPoolExecutor(args.threads) as exc:
@@ -72,5 +88,5 @@ def main(argv=None):
             results.append(res.result())
 
     print("path", "file_size", "estimated_n_reads", "read_length", "record_size", "bytes_per_record", sep="\t", file=args.out)
-    for res in results:
+    for res in sorted(results):
         print(res.path, res.file_size, res.estimated_nreads, res.mean_read_len, res.mean_record_size, res.bytes_per_record, sep="\t", file=args.out)
