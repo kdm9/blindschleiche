@@ -2,7 +2,7 @@
 
 A collection of bioinformatics / sequence utilities needed for my research, and hopefully useful for yours.
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10049825.svg)](https://zenodo.org/doi/10.5281/zenodo.10049825) `doi:10.5281/zenodo.10049825`
+[![ `doi:10.5281/zenodo.10049825`](https://zenodo.org/badge/DOI/10.5281/zenodo.10049825.svg)](https://zenodo.org/doi/10.5281/zenodo.10049825)
 
 ## Install
 
