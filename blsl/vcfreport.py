@@ -49,7 +49,7 @@ def parallel_regions(vcf, chunk=1000000):
         gclen += clen
 
 
-def variant2dict(v, fields=None, genotypes=False):
+def variant2dict(v, fields=None):
     dat = {"CHROM": v.CHROM, "POS": v.POS, "REF": v.REF, "ALT": v.ALT, "QUAL": v.QUAL}
     dat["call_rate"] = v.call_rate
     for key, val  in v.INFO:
@@ -62,8 +62,10 @@ def variant2dict(v, fields=None, genotypes=False):
             dat[f"INFO_{key}"] = val
     if fields:
         dat = {K:V for K, V in dat.items() if K in fields}
-    if genotypes:
-        dat["genotypes"] = [v[0] + v[1] if v[0] != -1 and v[1] != -1 else float('nan') for v in v.genotypes ]
+    if "FORMAT_GT" in fields:
+        dat["FORMAT_GT"] = [v[0] + v[1] if v[0] != -1 and v[1] != -1 else float('nan') for v in v.genotypes ]
+    if "FORMAT_DP" in fields:
+        dat["FORMAT_DP"] = v.format('DP')
     return dat
 
 
@@ -77,7 +79,7 @@ def one_chunk_stats(vcf, chunk, fill=True, fields=None, min_maf=0.01, min_call=0
         vcf = VCF(proc.stdout)
         for v in vcf:
             if v.call_rate >= min_call and len(v.ALT) == 1 and v.INFO["MAF"] >= min_maf and random.random() <= subsample:
-                variants.append(variant2dict(v, genotypes=True))
+                variants.append(variant2dict(v, fields=["FORMAT_GT", "FORMAT_DP"]))
             res.append(variant2dict(v, fields=["INFO_MAF", "call_rate", "INFO_HWE", "INFO_ExcHet", "INFO_AC", "QUAL"]))
         del vcf
     if not res:
@@ -94,7 +96,7 @@ def one_chunk_stats(vcf, chunk, fill=True, fields=None, min_maf=0.01, min_call=0
             "call_rate":  histogram(df.call_rate, "fixed_width", bin_width=0.01,  adaptive=True),
             "hwe":  histogram(df.INFO_HWE, "fixed_width", bin_width=0.01, adaptive=True),
             "exc_het": histogram(df.INFO_ExcHet, "fixed_width", bin_width=0.01, adaptive=True),
-            "ac": histogram(df.INFO_AC, "fixed_width", bin_width=1, adaptive=True),
+            "ac": histogram(df.INFO_AC, "fixed_width", bin_width=10, adaptive=True),
             "qual": histogram(df.QUAL, "fixed_width", bin_width=1, adaptive=True),
             "subset_variants": variants
         }
@@ -131,8 +133,8 @@ def update_result(globalres, res, hists = ["maf", "call_rate", "hwe", "exc_het",
     return globalres
 
 
-def chunkwise_bcftools_stats(vcf, threads=8):
-    regions = list(parallel_regions(vcf))
+def chunkwise_bcftools_stats(vcf, threads=8, chunksize=1_000_000):
+    regions = list(parallel_regions(vcf, chunk=chunksize))
     v=VCF(vcf)
     global_res = {
         "samples": v.samples,
@@ -147,9 +149,20 @@ def chunkwise_bcftools_stats(vcf, threads=8):
                     update_result(global_res, job.result())
     return global_res
 
+def sample_missingness(variants):
+    genomat = np.vstack([x["FORMAT_GT"] for x in variants])
+    missing = np.sum(np.isnan(genomat), axis=0) / np.shape(genomat)[0]
+    #return {s:m for s, m in zip(res["samples"], missing)}
+    return histogram(missing, 30)
+
+def sample_depth(variants):
+    dpmat = np.hstack([x["FORMAT_DP"] for x in variants])
+    meandepth = np.nansum(dpmat, axis=1) / np.shape(dpmat)[1]
+    #return {s:m for s, m in zip(samples, meandepth)}
+    return histogram(meandepth, 30)
 
 def genotype_pca(res):
-    genomat = np.vstack([x["genotypes"] for x in res])
+    genomat = np.vstack([x["FORMAT_GT"] for x in res])
     imp = sklearn.impute.SimpleImputer()
     genomat = imp.fit_transform(genomat)
     pc = sklearn.decomposition.PCA()
@@ -157,11 +170,23 @@ def genotype_pca(res):
     return genomat, gpc, pc.explained_variance_ratio_
 
 
-def generate_report(vcf, threads):
-    gres = chunkwise_bcftools_stats(vcf, threads=threads)
+def generate_report(vcf, threads, chunksize=1_000_000):
+    gres = chunkwise_bcftools_stats(vcf, threads=threads, chunksize=chunksize)
     figwidth=1000
     figheight=750
     
+    fig_smis = sample_missingness(gres["subset_variants"]).plot()
+    fig_smis.update_xaxes(title_text="Missing Rate (sample)")
+    fig_smis.update_yaxes(title_text="# Samples")
+    fig_smis.update_layout(title_text="Sample Missing Rate", width=figwidth, height=figheight)
+    SMIS_CODE=fig_smis.to_html(full_html=False)
+
+    fig_sdp = sample_depth(gres["subset_variants"]).plot()
+    fig_sdp.update_xaxes(title_text="Mean Depth (sample)")
+    fig_sdp.update_yaxes(title_text="# Samples")
+    fig_sdp.update_layout(title_text="Sample Mean Depths", width=figwidth, height=figheight)
+    SDP_CODE=fig_sdp.to_html(full_html=False)
+
     fig_maf = gres["maf"].plot()
     fig_maf.update_xaxes(title_text="MAF")
     fig_maf.update_yaxes(title_text="# SNPS")
@@ -248,6 +273,19 @@ def generate_report(vcf, threads):
             <tr><td># Samples</td> <td align="right">{len(gres['samples']):,}</td> </tr>
         </table>
 
+        <h1>Sample-level Stats</h1>
+        <p>These statstics are based on a random 1% of all SNPs for efficiency's sake</p>
+
+        <h2>Sample Missing Rate</h1>
+        {SMIS_CODE}
+
+        <h2>Sample Mean Depth</h1>
+        {SDP_CODE}
+
+        <h2>Sample PCA</h1>
+        {PCA_CODE}
+
+        <h1> Variant-level stats</h1>
         <h2>Minor Allele Frequency</h2>
         {MAF_CODE}
 
@@ -266,9 +304,6 @@ def generate_report(vcf, threads):
         <h2>Variant Quality</h2>
         {QUAL_CODE}
 
-        <h2>PCA</h1>
-        {PCA_CODE}
-
         <h2>SNPs per Genome Window</h1>
         {SNPOVERGENOME_CODE}
 
@@ -285,11 +320,13 @@ def main(argv=None):
                     help="Output html file")
     ap.add_argument("--threads", "-t", type=int, default=2,
                     help="Parallel threads")
+    ap.add_argument("--chunksize", "-c", type=int, default=1_000_000,
+                    help="Chunks size for parallelism")
     ap.add_argument("vcf",
                     help="VCF input file (must be indexed)")
     args=ap.parse_args(argv)
 
-    html = generate_report(args.vcf, threads=args.threads)
+    html = generate_report(args.vcf, threads=args.threads, chunksize=args.chunksize)
     args.output.write(html)
     args.output.flush()
 
