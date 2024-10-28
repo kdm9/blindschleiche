@@ -19,16 +19,34 @@ import math
 import json
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import random
+from dataclasses import dataclass
+
+
+@dataclass
+class Region:
+    contig: str
+    start: int
+    end: int
+    gpos: int
+
+    def __str__(self):
+        return f"{self.contig}:{self.start}-{self.end}"
+
+    @property
+    def len(self):
+        return self.end - self.start + 1
 
 
 def parallel_regions(vcf, chunk=1000000):
     V = VCF(vcf)
+    gclen = 0
     for cname, clen in zip(V.seqnames, V.seqlens):
         for start in range(0, clen, chunk):
             s = start+1
             e = min(start+chunk, clen)
-            yield f"{cname}:{s}-{e}"
-
+            gpos = gclen + ( s + e )/2
+            yield Region(cname, s, e, gpos)
+        gclen += clen
 
 
 def variant2dict(v, fields=None, genotypes=False):
@@ -50,7 +68,7 @@ def variant2dict(v, fields=None, genotypes=False):
 
 
 def one_chunk_stats(vcf, chunk, fill=True, fields=None, min_maf=0.01, min_call=0.7, subsample=0.01):
-    cmd=f"bcftools view -r {chunk} {vcf} -Ou"
+    cmd=f"bcftools view -r {str(chunk)} {vcf} -Ou"
     if fill:
         cmd = f"{cmd} | bcftools +fill-tags - -Ou -- -d -t all,F_MISSING"
     variants = []
@@ -105,13 +123,19 @@ def update_result(globalres, res, hists = ["maf", "call_rate", "hwe", "exc_het",
             globalres[histkey] = res[histkey]
             continue
         globalres[histkey] += res[histkey]
+    if "snps_per_window" not in globalres:
+        globalres["snps_per_window"] = {"pos": list(), "n_snps": list(), "chrom": list()}
+    globalres["snps_per_window"]["pos"].append(res["chunk"].gpos)
+    globalres["snps_per_window"]["chrom"].append(res["chunk"].contig)
+    globalres["snps_per_window"]["n_snps"].append(res["n_snps"]/res["chunk"].len)
     return globalres
 
 
 def chunkwise_bcftools_stats(vcf, threads=8):
     regions = list(parallel_regions(vcf))
+    v=VCF(vcf)
     global_res = {
-        "samples": VCF(vcf).samples
+        "samples": v.samples,
     }
     with tqdm(total=len(regions), unit="chunk") as pbar:
         for i in range(0, len(regions), 1000):
@@ -135,76 +159,119 @@ def genotype_pca(res):
 
 def generate_report(vcf, threads):
     gres = chunkwise_bcftools_stats(vcf, threads=threads)
+    figwidth=1000
+    figheight=750
     
     fig_maf = gres["maf"].plot()
     fig_maf.update_xaxes(title_text="MAF")
     fig_maf.update_yaxes(title_text="# SNPS")
-    fig_maf.update_layout(title_text="MAF Spectrum")
+    fig_maf.update_layout(title_text="MAF Spectrum", width=figwidth, height=figheight)
     MAF_CODE=fig_maf.to_html(full_html=False)
 
     fig_cr = gres["call_rate"].plot()
     fig_cr.update_xaxes(title_text="Call Rate")
     fig_cr.update_yaxes(title_text="# SNPS")
-    fig_cr.update_layout(title_text="Call Rate Spectrum")
+    fig_cr.update_layout(title_text="Call Rate Spectrum", width=figwidth, height=figheight)
     CALLRATE_CODE = fig_cr.to_html(full_html=False)
 
     fig_hwe = gres["hwe"].plot()
     fig_hwe.update_xaxes(title_text="p(not in HWE)")
     fig_hwe.update_yaxes(title_text="# SNPS")
-    fig_hwe.update_layout(title_text="HWE Test")
+    fig_hwe.update_layout(title_text="HWE Test", width=figwidth, height=figheight)
     HWE_CODE = fig_hwe.to_html(full_html=False)
     
     fig_xh = gres["exc_het"].plot()
     fig_xh.update_xaxes(title_text="p(Excess Heterozygotes)")
     fig_xh.update_yaxes(title_text="# SNPS")
-    fig_xh.update_layout(title_text="ExHet Test")
+    fig_xh.update_layout(title_text="ExHet Test", width=figwidth, height=figheight)
     EXHET_CODE = fig_xh.to_html(full_html=False)
 
     fig_ac = gres["ac"].plot()
     fig_ac.update_xaxes(title_text="Alternate Allele Count")
     fig_ac.update_yaxes(title_text="# SNPS")
-    fig_ac.update_layout(title_text="Count of Alt Alleles")
+    fig_ac.update_layout(title_text="Count of Alt Alleles", width=figwidth, height=figheight)
     AC_CODE = fig_ac.to_html(full_html=False)
     
     fig_qual = gres["qual"].plot()
     fig_qual.update_xaxes(title_text="Variant Quality")
     fig_qual.update_yaxes(title_text="# SNPS")
-    fig_qual.update_layout(title_text="Variant Quality")
+    fig_qual.update_layout(title_text="Variant Quality", width=figwidth, height=figheight)
     QUAL_CODE = fig_qual.to_html(full_html=False)
 
     
     x, pc, varex = genotype_pca(gres["subset_variants"])
+    axtitle={"xy"[i]: f"PC {i+1} ({varex[i]*100:.1f}%)" for i in range(2)}
     pc_fig = px.scatter(
         x=pc[:,0],
         y=pc[:,1],
-        labels={"xy"[i]: f"PC {i+1} ({varex[i]*100:.1f}%)" for i in range(2)},
         hover_name=gres["samples"],
-        title="PCA on imputed subset of high-quality SNPs",
+        width=figwidth,
+        height=figheight,
     )
+    pc_fig.update_xaxes(title_text=axtitle["x"])
+    pc_fig.update_yaxes(title_text=axtitle["y"])
+    pc_fig.update_layout(title_text="PCA on imputed subset of high-quality SNPs", width=figwidth, height=figheight)
     PCA_CODE = pc_fig.to_html(full_html=False)
     
+    sog_data = pd.DataFrame(gres["snps_per_window"])
+    sog_data = sog_data.sort_values(by="pos")
+    sog_fig = px.line(
+        sog_data,
+        x="pos",
+        y="n_snps",
+        color="chrom",
+        title="SNPs per Genome Window",
+        width=figwidth,
+        height=figheight,
+    )
+    sog_fig.update_xaxes(title_text="Genome Position")
+    sog_fig.update_yaxes(title_text="SNPs per base")
+    sog_fig.update_layout(title_text="SNPs per Genome Window", width=figwidth, height=figheight)
+    SNPOVERGENOME_CODE = sog_fig.to_html(full_html=False)
+
     html = f"""
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <style>
+            body {{
+              max-width: 1000px;
+            }}
+        </style>
     </head>
     <body>
-    <h1>Statistics</h1>
-    <h2>Minor Allele Frequency</h2>
-    {MAF_CODE}
-    <h2>Call Rate</h2>
-    {CALLRATE_CODE}
-    <h2>Hardy-Weinberg Equilibirum Tests</h2>
-    {HWE_CODE}
-    <h2>Excess Heterozygosity Tests</h2>
-    {EXHET_CODE}
-    <h2>Allele Counts</h2>
-    {AC_CODE}
-    <h2>Variant Quality</h2>
-    {QUAL_CODE}
-    <h1>PCA</h1>
-    {PCA_CODE}
+        <h1>VCF Statistics</h1>
+        <table>
+            <tr><td>File</td> <td align="right">{vcf}</td> </tr>
+            <tr><td>Total # SNPs</td> <td align="right">{gres['n_snps']:,}</td> </tr>
+            <tr><td># Samples</td> <td align="right">{len(gres['samples']):,}</td> </tr>
+        </table>
+
+        <h2>Minor Allele Frequency</h2>
+        {MAF_CODE}
+
+        <h2>Call Rate</h2>
+        {CALLRATE_CODE}
+
+        <h2>Hardy-Weinberg Equilibirum Tests</h2>
+        {HWE_CODE}
+
+        <h2>Excess Heterozygosity Tests</h2>
+        {EXHET_CODE}
+
+        <h2>Allele Counts</h2>
+        {AC_CODE}
+
+        <h2>Variant Quality</h2>
+        {QUAL_CODE}
+
+        <h2>PCA</h1>
+        {PCA_CODE}
+
+        <h2>SNPs per Genome Window</h1>
+        {SNPOVERGENOME_CODE}
+
     </body>
     </html>
     """
@@ -216,7 +283,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser("blsl vcfreport")
     ap.add_argument("--output", "-o", type=argparse.FileType("w"), required=True,
                     help="Output html file")
-    ap.add_argument("--threads", "-j", type=int, default=2,
+    ap.add_argument("--threads", "-t", type=int, default=2,
                     help="Parallel threads")
     ap.add_argument("vcf",
                     help="VCF input file (must be indexed)")
@@ -225,3 +292,6 @@ def main(argv=None):
     html = generate_report(args.vcf, threads=args.threads)
     args.output.write(html)
     args.output.flush()
+
+if __name__ == "__main__":
+    main()
