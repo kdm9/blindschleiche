@@ -65,8 +65,24 @@ def variant2dict(v, fields=None):
     if "FORMAT_GT" in fields:
         dat["FORMAT_GT"] = [v[0] + v[1] if v[0] != -1 and v[1] != -1 else float('nan') for v in v.genotypes ]
     if "FORMAT_DP" in fields:
-        dat["FORMAT_DP"] = v.format('DP')
+        dat["FORMAT_DP"] = [x[0] for x in v.format('DP').tolist()]
     return dat
+
+
+def res2json(gres, base=True):
+    res = {}
+    for key, val in gres.items():
+        if isinstance(val, dict):
+            val = res2json(val, base=False)
+        elif isinstance(val, physt.histogram1d.Histogram1D):
+            val={ "bins": val.bins.tolist(), "frequencies": val.frequencies.tolist()}
+        elif isinstance(val, np.ndarray):
+            val=val.tolist()
+        if base and key == "subset_variants":
+            continue # skip subset variants
+            #val = {x: [v[x] for v in val] for x in ["FORMAT_DP", "FORMAT_GT"]}
+        res[key] = val
+    return res
 
 
 def one_chunk_stats(vcf, chunk, fill=True, fields=None, min_maf=0.01, min_call=0.7, subsample=0.01):
@@ -147,41 +163,48 @@ def chunkwise_bcftools_stats(vcf, threads=8, chunksize=1_000_000):
                 for job in as_completed(jobs):
                     pbar.update(1)
                     update_result(global_res, job.result())
+
+    genomat = np.vstack([x["FORMAT_GT"] for x in global_res["subset_variants"]])
+    dpmat = np.vstack([x["FORMAT_DP"] for x in global_res["subset_variants"]])
+    global_res["subset_variants"] = {
+            "FORMAT_GT": genomat,
+            "FORMAT_DP": dpmat,
+    }
+    global_res["sample_missingness"] = sample_missingness(global_res)
+    global_res["sample_depth"] = sample_depth(global_res)
+    x, pc, varex = genotype_pca(global_res)
+    global_res["pca"] = {"pc": pc, "varex": varex}
     return global_res
 
-def sample_missingness(variants):
-    genomat = np.vstack([x["FORMAT_GT"] for x in variants])
+def sample_missingness(res):
+    genomat = res["subset_variants"]["FORMAT_GT"]
     missing = np.sum(np.isnan(genomat), axis=0) / np.shape(genomat)[0]
-    #return {s:m for s, m in zip(res["samples"], missing)}
-    return histogram(missing, 30)
+    return {s:m for s, m in zip(res["samples"], missing)}
 
-def sample_depth(variants):
-    dpmat = np.hstack([x["FORMAT_DP"] for x in variants])
-    meandepth = np.nansum(dpmat, axis=1) / np.shape(dpmat)[1]
-    #return {s:m for s, m in zip(samples, meandepth)}
-    return histogram(meandepth, 30)
+def sample_depth(res):
+    dpmat = res["subset_variants"]["FORMAT_DP"]
+    meandepth = np.nansum(dpmat, axis=0) / np.shape(dpmat)[0]
+    return {s:m for s, m in zip(res["samples"], meandepth)}
 
 def genotype_pca(res):
-    genomat = np.vstack([x["FORMAT_GT"] for x in res])
+    genomat = res["subset_variants"]["FORMAT_GT"]
     imp = sklearn.impute.SimpleImputer()
     genomat = imp.fit_transform(genomat)
     pc = sklearn.decomposition.PCA()
     gpc = pc.fit_transform(genomat.T)
     return genomat, gpc, pc.explained_variance_ratio_
 
-
-def generate_report(vcf, threads, chunksize=1_000_000):
-    gres = chunkwise_bcftools_stats(vcf, threads=threads, chunksize=chunksize)
+def generate_report(gres, args):
     figwidth=1000
     figheight=750
     
-    fig_smis = sample_missingness(gres["subset_variants"]).plot()
+    fig_smis = histogram(list(gres["sample_missingness"].values()), 30).plot()
     fig_smis.update_xaxes(title_text="Missing Rate (sample)")
     fig_smis.update_yaxes(title_text="# Samples")
     fig_smis.update_layout(title_text="Sample Missing Rate", width=figwidth, height=figheight)
     SMIS_CODE=fig_smis.to_html(full_html=False)
 
-    fig_sdp = sample_depth(gres["subset_variants"]).plot()
+    fig_sdp = histogram(list(gres["sample_depth"].values()), 30).plot()
     fig_sdp.update_xaxes(title_text="Mean Depth (sample)")
     fig_sdp.update_yaxes(title_text="# Samples")
     fig_sdp.update_layout(title_text="Sample Mean Depths", width=figwidth, height=figheight)
@@ -224,7 +247,8 @@ def generate_report(vcf, threads, chunksize=1_000_000):
     QUAL_CODE = fig_qual.to_html(full_html=False)
 
     
-    x, pc, varex = genotype_pca(gres["subset_variants"])
+    pc  = gres["pca"]["pc"]
+    varex = gres["pca"]["varex"]
     axtitle={"xy"[i]: f"PC {i+1} ({varex[i]*100:.1f}%)" for i in range(2)}
     pc_fig = px.scatter(
         x=pc[:,0],
@@ -268,7 +292,7 @@ def generate_report(vcf, threads, chunksize=1_000_000):
     <body>
         <h1>VCF Statistics</h1>
         <table>
-            <tr><td>File</td> <td align="right">{vcf}</td> </tr>
+            <tr><td>File</td> <td align="right">{args.vcf}</td> </tr>
             <tr><td>Total # SNPs</td> <td align="right">{gres['n_snps']:,}</td> </tr>
             <tr><td># Samples</td> <td align="right">{len(gres['samples']):,}</td> </tr>
         </table>
@@ -318,6 +342,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser("blsl vcfreport")
     ap.add_argument("--output", "-o", type=argparse.FileType("w"), required=True,
                     help="Output html file")
+    ap.add_argument("--json", "-O", type=argparse.FileType("w"),
+                    help="Output JSON data dump file")
     ap.add_argument("--threads", "-t", type=int, default=2,
                     help="Parallel threads")
     ap.add_argument("--chunksize", "-c", type=int, default=1_000_000,
@@ -326,7 +352,11 @@ def main(argv=None):
                     help="VCF input file (must be indexed)")
     args=ap.parse_args(argv)
 
-    html = generate_report(args.vcf, threads=args.threads, chunksize=args.chunksize)
+    gres = chunkwise_bcftools_stats(args.vcf, threads=args.threads, chunksize=args.chunksize)
+    if args.json:
+        jres = res2json(gres)
+        json.dump(jres, args.json)
+    html = generate_report(gres, args)
     args.output.write(html)
     args.output.flush()
 

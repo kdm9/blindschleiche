@@ -5,6 +5,7 @@
 
 from tqdm import tqdm
 from cyvcf2 import VCF
+from natsort import natsorted
 
 from sys import stdin, stdout, stderr
 import shutil
@@ -18,12 +19,10 @@ import uuid
 import re
 
 
-def parallel_regions(vcf, cores=1, npercore=10):
+def parallel_regions(vcf, chunks=10):
     V = VCF(vcf)
-    # 10 chunks per chrom per core
-    chunks = len(V.seqlens)*npercore*cores
     for cname, clen in zip(V.seqnames, V.seqlens):
-        chunk = int(max(min(clen, 1000), math.ceil(clen/chunks)))
+        chunk = int(max(min(clen, 1_000_000), math.ceil(clen/chunks)))
         for start in range(0, clen, chunk):
             s = start+1
             e = min(clen, start+chunk+1)
@@ -47,7 +46,7 @@ def chunkwise_pipeline(args):
     with ProcessPoolExecutor(args.threads) as exc:
         jobs = []
         if args.regions is None:
-            regions = parallel_regions(args.vcf)
+            regions = parallel_regions(args.vcf, chunks=args.chunks)
         else:
             regions = set()
             for line in args.regions:
@@ -67,7 +66,7 @@ def merge_one(files, prefix, threads=1, merge_type="fast"):
     fofn = f"{prefix}fofn.txt"
     output = f"{prefix}output.bcf"
     with open(fofn, "w") as fh:
-        for file in sorted(files):
+        for file in natsorted(files):
             print(file, file=fh)
     merge = "--allow-overlaps --rm-dup all" if merge_type == "slow" else ""
     cmd = f"(bcftools concat --file-list {fofn} {merge} --threads {threads} -Ob0 --write-index -o {output}) >{output}.log 2>&1"
@@ -97,7 +96,7 @@ def merge_results(args, filestomerge):
         with ProcessPoolExecutor(args.threads) as exc:
             jobs = []
             for i, files in enumerate(groups):
-                jobs.append(exc.submit(merge_one, files, f"{args.temp_prefix}merge_group_{i}_", args.merge_type))
+                jobs.append(exc.submit(merge_one, files, f"{args.temp_prefix}merge_group_{i:09d}_", args.merge_type))
             for job in tqdm(as_completed(jobs), total=len(jobs), unit="group"):
                 ofile = job.result()
                 final_merge.append(ofile)
@@ -106,7 +105,7 @@ def merge_results(args, filestomerge):
 
     fofn = f"{args.temp_prefix}final_fofn.txt"
     with open(fofn, "w") as fh:
-        for file in sorted(final_merge):
+        for file in natsorted(final_merge):
             print(file, file=fh)
     index = "--write-index" if re.match(r"[zb]", args.outformat) else ""
     merge = "--allow-overlaps --rm-dup all" if args.merge_type == "slow" else ""
@@ -131,6 +130,8 @@ def main(argv=None):
             help="Use slow bcftools merging (with --allow-overlaps and --remove-duplicates)")
     ap.add_argument("-f", "--filter", default="", type=str,
             help="bcftools view arguments for variant filtering")
+    ap.add_argument("-C", "--chunks", type=int,
+            help="Number of chunks each chromosome is broken into. Default: 10*--threads")
     ap.add_argument("-c", "--commands", default="", type=str,
             help="command(s) to operate. Must take uncompressed bcf on stdin and yield bcf (i.e -Ob0) on stdout. Can use | and other shell features.")
     ap.add_argument("-M", "--merge-with-cat", action="store_true",
@@ -140,6 +141,8 @@ def main(argv=None):
     ap.add_argument("vcf")
     args = ap.parse_args(argv)
 
+    if args.chunks is None:
+        args.chunks = args.threads * 10
     if args.temp_prefix is None:
         args.temp_prefix = tempfile.gettempdir() + "/bcffilter"
     tp = Path(args.temp_prefix)

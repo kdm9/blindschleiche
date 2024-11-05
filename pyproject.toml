@@ -13,6 +13,7 @@ dependencies = [
     "scikit-learn",
     "physt",
     "plotly",
+    "natsort",
 ]
 dynamic = [
     "version",
