@@ -75,7 +75,7 @@ class AdapterRemoval(PatternMatcher):
     anyline = r"AdapterRemoval ver. .+"
     patterns = {
             "total_reads": (int, r"Total number of read pairs: (\d+)"),
-            "reads_with_adapter": (int, r"Number of reads with adapters[1]: (\d+)"),
+            "reads_with_adapter": (int, r"Number of reads with adapters.*: (\d+)"),
             "reads_kept": (int, r"Number of retained reads: (\d+)"),
             "bases_kept": (int, r"Number of retained nucleotides: (\d+)"),
             "avergage_length_postqc": (float, r"Average length of retained reads: ([\d.]+)"),
