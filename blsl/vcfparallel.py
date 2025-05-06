@@ -22,6 +22,9 @@ import re
 def parallel_regions(vcf, chunks=10):
     V = VCF(vcf)
     for cname, clen in zip(V.seqnames, V.seqlens):
+        if chunks==0:
+            yield f"{cname}:{1:09d}-{clen:09d}"
+            continue
         chunk = int(max(min(clen, 1_000_000), math.ceil(clen/chunks)))
         for start in range(0, clen, chunk):
             s = start+1
