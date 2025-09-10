@@ -51,7 +51,7 @@ def parseGFFAttributes(attributeString, lax=False):
             continue
         if not value:
             value = "True"
-        ret[urllib.parse.unquote(key)] = urllib.parse.unquote(value)
+        ret[urllib.parse.unquote(key, errors="replace")] = urllib.parse.unquote(value, errors="replace")
     return ret
 
 def parseGFF3(filename, return_as=dict, lax=False):
@@ -85,12 +85,10 @@ def parseGFF3(filename, return_as=dict, lax=False):
                 "phase": None if parts[7] == "." else urllib.parse.unquote(parts[7]),
                 "attributes": parseGFFAttributes(parts[8], lax=True)
             }
-            #Alternatively, you can emit the dictionary here, if you need mutability:
-            #    yield normalizedInfo
             yield return_as(**normalizedInfo)
             
 
-def gff_heirarchy(filename, progress=None, make_missing_genes=False):
+def gff_heirarchy(filename, progress=None, make_missing_genes=False, lax=False):
     level_canonicaliser = {
         "transcript": "mRNA",
     }
@@ -120,7 +118,7 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
     last = {"l1": None, "l2": None, "l3": None}
     i = 0
     warned = set()
-    recordsrc =  parseGFF3(filename, return_as=dict)
+    recordsrc =  parseGFF3(filename, return_as=dict, lax=lax)
     if progress is not None:
         if progress == True:
             desc=None
@@ -175,6 +173,12 @@ def gff_heirarchy(filename, progress=None, make_missing_genes=False):
         else:
             try:
                 parent = record["attributes"].get("Parent", record["attributes"].get("transcript_id", None))
+                if hasattr(parent, "strip"):
+                    parent = parent.strip()
+                # awful hacky bullshit for TAIR10's non-standard GFF with comma separated parents
+                if ',' in parent and re.match(r"AT[\dCM]G\d{5}", parent):
+                    parent = list(filter(lambda x: x in l2l1, parent.split(',')))[0]
+                    record["attributes"]["Parent"] = parent
                 if parent in records and not parent in l2l1 and make_missing_genes:
                     # We have L1 -> L3 only
                     if "made_l2" not in warned:
