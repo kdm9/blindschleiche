@@ -77,6 +77,8 @@ cmds["gfftagsane"] = gfftagsane_main
 from .genebed import main as genebed_main
 cmds["genebed"] = genebed_main
 
+from .gffattr2tsv import main as gffattr2tsv_main
+cmds["gffattr2tsv"] = gffattr2tsv_main
 
 from .liftoff_gff3 import liftoff_gff3_main
 cmds["liftoff-gff3"] = liftoff_gff3_main
