@@ -135,6 +135,9 @@ cmds["tidyqc"] = tidyqc_main
 from .jsonl2csv import main as jsonl2csv_main
 cmds["jsonl2csv"] = jsonl2csv_main
 
+from .tarverify import main as tarverify_main
+cmds["tarverify"] = tarverify_main
+
 
 def mainhelp(argv=None):
     """Print this help message"""
