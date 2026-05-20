@@ -231,13 +231,12 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
                             tf.add(full_d, arcname=arcname, recursive=False)
                             any_added = True
                             print("ADD", arcname)
-                            move_to_trash(full_d, trash_dir)
                         except (OSError, tarfile.TarError):
                             pass
 
                 for f in filenames:
                     if timeout_exceeded(timeout, start_time):
-                        return False
+                        return (False, False)
                     full_f = os.path.join(dirpath, f)
                     arcname = full_f.lstrip('/')
                     try:
@@ -245,7 +244,6 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
                             tf.add(full_f, arcname=arcname)
                             any_added = True
                             print("ADD", arcname)
-                            move_to_trash(full_f, trash_dir)
                     except (OSError, tarfile.TarError):
                         pass
     finally:
@@ -256,7 +254,7 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
         os.rename(tmp_path, chunk_path)
     else:
         os.unlink(tmp_path)
-    return True
+    return (True, any_added)
 
 
 def main(argv=None):
@@ -294,12 +292,14 @@ def main(argv=None):
 
     os.makedirs(trash_dir, exist_ok=True)
 
-    ok = phase1_verify(tar_dir, trash_dir, input_dirs, timeout, start_time)
-    if not ok:
+    ok1 = phase1_verify(tar_dir, trash_dir, input_dirs, timeout, start_time)
+    if not ok1:
         sys.exit(2)
 
-    ok = phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time)
-    if not ok:
+    ok2, any_added = phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time)
+    if not ok2:
         sys.exit(2)
+    if any_added:
+        sys.exit(3)
 
     sys.exit(0)
