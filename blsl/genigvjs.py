@@ -12,6 +12,17 @@ from base64 import b64encode
 import shutil
 
 
+def with_parents(path, n):
+    """Take the n last components of a parent string.
+
+    >>> with_parents("/a/b/c/d.txt", 0)
+    Path("d.txt")
+    >>> with_parents("/a/b/c/d.txt", 2)
+    Path("b/c/d.txt")
+    """
+    return Path(*path.parts[-(n + 1):])
+
+
 def get_data_uri(data):
     if isinstance(data, str) or isinstance(data, Path):
         data = Path(data)
@@ -74,6 +85,8 @@ def genigvjs_main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--template", "-T", required=False,
             help="Alternative HTML template")
+    ap.add_argument("--with-parents", default=0, type=int,
+            help="Copy inputs to path including N parent components")
     ap.add_argument("--copy", "--cp", action="store_true",
             help="Copy, don't link, data to output dir")
     ap.add_argument("--embed", "-e", action="store_true",
@@ -128,20 +141,21 @@ def genigvjs_main(argv=None):
                 '#fdbf6f','#ff7f00','#cab2d6','#6a3d9a', '#b15928']
     for i, track in enumerate(args.tracks):
         track = Path(track)
-        base = track.stem
+        track_out = with_parents(track, args.with_parents)
+        base = track_out.stem
         dots = track.name.split('.')
         format = dots[-1]
         if format == "gz":
             format = dots[-2]
         index = None
-        if format == "bam":
-            index = Path(str(track) + ".bai")
-        else:
-            index = Path(str(track) + ".tbi")
-        if not index.exists():
-            index = None
+        index_ext = [".bai", ".csi", ".tbi"]
+        for ext in index_ext:
+            index = Path(str(track) + ext)
+            index_out = Path(str(track_out) + ext)
+            if index.exists():
+                break
         trackdat = {
-            "name": base,
+            "name": str(track_out),
             "format": format,
             "autoHeight": True,
             "minHeight": 50,
@@ -153,11 +167,15 @@ def genigvjs_main(argv=None):
             if index is not None:
                 trackdat["indexURL"] = get_data_uri(index)
         else:
-            trackdat["url"] =  f"{args.prefix}{track.name}"
-            link(outdir / track.name, track, copy=args.copy)
+            trackdat["url"] =  f"{args.prefix}{track_out}"
+            track_out = outdir/track_out
+            track_out.parent.mkdir(exist_ok=True)
+            link(track_out, track, copy=args.copy)
             if index is not None:
-                trackdat["indexURL"] =  f"{args.prefix}{index.name}"
-                link(outdir / index.name, index, copy=args.copy)
+                trackdat["indexURL"] =  f"{args.prefix}{index_out}"
+                index_out = outdir/index_out
+                index_out.parent.mkdir(exist_ok=True)
+                link(index_out, index, copy=args.copy)
         data["tracks"].append(trackdat)
     with open(outdir / "index.html", "w") as fh:
         html = template \
