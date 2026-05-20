@@ -187,7 +187,10 @@ def phase1_verify(tar_dir, trash_dir, input_dirs, timeout, start_time):
                     continue
                 if verify_member(tf, member, disk_path):
                     if member.isfile() or member.issym():
+                        print("VERIFY", member)
                         move_to_trash(disk_path, trash_dir)
+                else:
+                    print("FAIL_VERIFY", member)
                 member = tf.next()
         finally:
             tf.close()
@@ -227,6 +230,7 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
                         try:
                             tf.add(full_d, arcname=arcname, recursive=False)
                             any_added = True
+                            print("ADD", arcname)
                             move_to_trash(full_d, trash_dir)
                         except (OSError, tarfile.TarError):
                             pass
@@ -240,6 +244,7 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
                         if os.path.islink(full_f) or os.path.isfile(full_f):
                             tf.add(full_f, arcname=arcname)
                             any_added = True
+                            print("ADD", arcname)
                             move_to_trash(full_f, trash_dir)
                     except (OSError, tarfile.TarError):
                         pass
