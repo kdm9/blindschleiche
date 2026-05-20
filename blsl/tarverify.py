@@ -249,11 +249,11 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
     finally:
         if tf is not None:
             tf.close()
+        if any_added:
+            os.rename(tmp_path, chunk_path)
+        else:
+            os.unlink(tmp_path)
 
-    if any_added:
-        os.rename(tmp_path, chunk_path)
-    else:
-        os.unlink(tmp_path)
     return (True, any_added)
 
 
