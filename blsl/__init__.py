@@ -38,6 +38,9 @@ cmds["ilsample"] = ilsample_main
 from .regionbed import main as regionbed_main
 cmds["regionbed"] = regionbed_main
 
+from .fai2bed import fai2bed_main
+cmds["fai2bed"] = fai2bed_main
+
 from .uniref_accessionmap import main as uniref_main
 cmds["uniref-acc2taxid"] = uniref_main
 
