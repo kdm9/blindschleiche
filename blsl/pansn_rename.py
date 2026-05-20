@@ -6,9 +6,28 @@ except ImportError:
         return args[0]
 
 import argparse
+import gzip
 import re
 from pathlib import Path
-from sys import stderr, exit
+from sys import stderr, exit, stdin
+
+
+class _LazyAddReplacer:
+    """On-the-fly PanSN name builder for add mode without a reference."""
+    def __init__(self, org_name, outdelim, lowercase, hap):
+        self.org_name = org_name
+        self.outdelim = outdelim
+        self.lowercase = lowercase
+        self.hap = hap
+        self.cache = {}
+
+    def __getitem__(self, key):
+        if key not in self.cache:
+            val = self.outdelim.join([self.org_name, self.hap, key])
+            if self.lowercase:
+                val = val.lower()
+            self.cache[key] = val
+        return self.cache[key]
 
 
 def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refdelim="~", lowercase=True):
@@ -17,11 +36,11 @@ def make_replacer(mode, reffa=None, org_name=None, delim="~", outdelim="~", refd
             return string.lower()
         return string
     names = []
-    if not reffa.endswith(".fai"):
+    if reffa is not None and not reffa.endswith(".fai"):
         reffa += ".fai"
-    with open(reffa) as fh:
-        for line in fh:
-            names.append(line.split()[0])
+        with open(reffa) as fh:
+            for line in fh:
+                names.append(line.split()[0])
     fromto = {}
     for name in names:
         if org_name is not None:
@@ -84,7 +103,7 @@ def main(argv=None):
         help="Lowercase all names")
     ap.add_argument("-D", "--out-delim",
         help="--delim for the output. Defaults to the same as --delim.")
-    ap.add_argument("-r", "--reference-fasta", required=True,
+    ap.add_argument("-r", "--reference-fasta",
         help="Reference fasta file with PanSN names.")
     ap.add_argument("-R", "--ref-delim",
         help="Delimiter between fields in PanSN names in the --reference-fasta file (default: same as --delim)")
@@ -94,11 +113,13 @@ def main(argv=None):
         help="Which column in TSV should be sub'd? (default depends on input "
              "filetype, normally 0, use more than once for multiple columns "
              "e.g. -c 0 -c 3 for 1st & 4th cols).")
+    ap.add_argument("-H", "--hap", default="1", type=str,
+        help="Haplotype (middle bit of org#hap#chr) in --add mode")
     ap.add_argument("-m", "--mode", choices=["cat", "rm", "add"],
         help="What should I do? (see below)")
     ap.add_argument("-o", "--output", default="-", type=argparse.FileType("w"),
         help="output filename, default: stdout")
-    ap.add_argument("input", type=argparse.FileType("r"))
+    ap.add_argument("input", help="Input filename")
     args = ap.parse_args(argv)
 
     if args.reference_fasta is None and args.org_name is None:
@@ -113,24 +134,44 @@ def main(argv=None):
         args.ref_delim = args.delim
         
     replacer = make_replacer(args.mode, args.reference_fasta, args.org_name, args.delim, args.out_delim, args.ref_delim, lowercase=args.lowercase)
-    
+
+    # Detect file type (support .fa.gz etc.)
     input_ftype = "tsv"
-    try:
-        input_filename = Path(args.input.name)
-        if input_filename.suffix in fasta_exts:
-            input_ftype = "fasta"
-        elif input_filename.suffix in tsv_exts:
-            input_ftype =  "tsv"
-        else:
-            pass
-            #print("WARNING: unknown filetype", input_filename.suffix, ", assuming TSV-like format", file=stderr)
-    except:
-        print("WARNING: unable to determine input filetype, assuming TSV-like format", file=stderr)
-    
-    if input_ftype == "tsv":
-        do_tsv(args.input, args.output, args.colidx, replacer, coldelim=args.colsep)
+    if args.input == "-":
+        input_filename = Path("stdin")
     else:
-        do_fasta(args.input, args.output, replacer)
+        input_filename = Path(args.input)
+        suffixes = input_filename.suffixes
+        ext = ""
+        if len(suffixes) >= 2 and suffixes[-1] == ".gz":
+            ext = suffixes[-2]
+        elif suffixes:
+            ext = suffixes[-1]
+        if ext in fasta_exts:
+            input_ftype = "fasta"
+        elif ext in tsv_exts:
+            input_ftype = "tsv"
+
+    # Open input (support gzip)
+    if args.input == "-":
+        infh = stdin
+    elif str(input_filename).endswith(".gz"):
+        infh = gzip.open(args.input, "rt")
+    else:
+        infh = open(args.input, "r")
+
+    # For add mode without a reference, build names lazily
+    if args.mode == "add" and args.reference_fasta is None and args.org_name is not None:
+        replacer = _LazyAddReplacer(args.org_name, args.out_delim, args.lowercase, args.hap)
+
+    try:
+        if input_ftype == "tsv":
+            do_tsv(infh, args.output, args.colidx, replacer, coldelim=args.colsep)
+        else:
+            do_fasta(infh, args.output, replacer)
+    finally:
+        if infh is not stdin:
+            infh.close()
 
 
 if __name__ == "__main__":
