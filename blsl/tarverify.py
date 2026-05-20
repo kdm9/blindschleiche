@@ -134,13 +134,19 @@ def next_chunk_number(tar_dir):
 
 
 def get_chunks(tar_dir):
+    n = -1
     if not os.path.isdir(tar_dir):
         return
     chunks = []
     for entry in os.listdir(tar_dir):
+        if not entry.endswith(".tar"):
+            continue
         m = CHUNK_RE.match(entry)
         if m:
             chunks.append((int(m.group(1)), entry))
+        else:
+            chunks.append((n, entry))
+            n -= 1
     chunks.sort()
     for _, name in chunks:
         yield os.path.join(tar_dir, name)
