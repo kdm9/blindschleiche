@@ -23,7 +23,7 @@ jobs:
       if: github.ref_type == 'tag'
       run: |
         tag_ver="${GITHUB_REF_NAME#v}"
-        pkg_ver=$(python -c "from blsl import __version__; print(__version__)")
+        pkg_ver=$(grep -Po '__version__\s*=\s*"\K[^"]+' blsl/__init__.py)
         if [ "$tag_ver" != "$pkg_ver" ]; then
           echo "ERROR: tag version '${tag_ver}' != package version '${pkg_ver}'"
           echo "Bump __version__ in blsl/__init__.py to match the tag."
