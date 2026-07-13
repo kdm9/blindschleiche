@@ -187,10 +187,10 @@ def phase1_verify(tar_dir, trash_dir, input_dirs, timeout, start_time):
                     continue
                 if verify_member(tf, member, disk_path):
                     if member.isfile() or member.issym():
-                        print("VERIFY", member)
+                        print("VERIFY", member.name)
                         move_to_trash(disk_path, trash_dir)
                 else:
-                    print("FAIL_VERIFY", member)
+                    print("FAIL_VERIFY", member.name)
                 member = tf.next()
         finally:
             tf.close()
