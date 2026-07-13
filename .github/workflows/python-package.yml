@@ -37,3 +37,15 @@ jobs:
       run: |
         pip install .
         blsl help
+    - name: Install test deps
+      run: |
+        pip install ".[test]"
+    - name: Run pytest (unit + integration)
+      run: |
+        python -m pytest tests/test_tarverify.py -v -m "not slow and not crash"
+    - name: Run bash integration tests
+      run: |
+        bash tests/test_tarverify.sh
+    - name: Run bash large-file test (reduced)
+      run: |
+        TARVERIFY_LARGE_GB=1 bash tests/test_tarverify_large.sh

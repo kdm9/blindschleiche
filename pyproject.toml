@@ -22,12 +22,21 @@ dynamic = [
 file = "README.md" 
 content-type = "text/markdown"
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.scripts]
 blsl = "blsl:main"
 
 
 [tool.flit.module]
 name = "blsl"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "crash: marks tests that use SIGKILL (deselect with '-m \"not crash\"')",
+]
 
 [build-system]
 requires = ["flit_core >=3.2,<4"]
