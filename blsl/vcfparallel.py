@@ -34,7 +34,7 @@ def parallel_regions(vcf, chunks=10):
 
 def one_chunk(vcf, chunk, temp_prefix, filterarg="", pipeline="", index=True):
     ofile = f"{temp_prefix}{chunk}.bcf"
-    cmd=f"bcftools view -r {chunk} {filterarg} -Ou {vcf}"
+    cmd=f"bcftools view -r {chunk} --regions-overlap 0 {filterarg} -Ou {vcf}"
     if pipeline:
         cmd = f"{cmd} | {pipeline}"
     if index:
