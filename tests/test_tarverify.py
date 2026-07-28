@@ -24,6 +24,7 @@ from blsl.tarverify import (
     move_to_trash,
     next_chunk_number,
     parse_args,
+    parse_size,
     phase1_verify,
     phase2_append,
     prune_excluded,
@@ -165,6 +166,49 @@ class TestParseArgs:
     def test_missing_input(self):
         with pytest.raises(SystemExit):
             parse_args(['-f', '/t', '-t', '/r'])
+
+    def test_max_chunk_size_10g(self):
+        args = parse_args(['-f', '/t', '-t', '/r', '--max-chunk-size', '10G', '/i'])
+        assert args.max_chunk_size == 10 * 1024 ** 3
+
+    def test_max_chunk_size_500m(self):
+        args = parse_args(['-f', '/t', '-t', '/r', '--max-chunk-size', '500M', '/i'])
+        assert args.max_chunk_size == 500 * 1024 ** 2
+
+    def test_max_chunk_size_none(self):
+        args = parse_args(['-f', '/t', '-t', '/r', '/i'])
+        assert args.max_chunk_size is None
+
+
+# ======================================================================
+# parse_size
+# ======================================================================
+
+class TestParseSize:
+    def test_bytes(self):
+        assert parse_size('12345') == 12345
+
+    def test_kilobytes(self):
+        assert parse_size('1K') == 1024
+        assert parse_size('2k') == 2048
+        assert parse_size('1.5K') == 1536
+
+    def test_megabytes(self):
+        assert parse_size('1M') == 1024 ** 2
+        assert parse_size('10m') == 10 * 1024 ** 2
+
+    def test_gigabytes(self):
+        assert parse_size('1G') == 1024 ** 3
+        assert parse_size('2.5G') == int(2.5 * 1024 ** 3)
+
+    def test_terabytes(self):
+        assert parse_size('1T') == 1024 ** 4
+
+    def test_stripped(self):
+        assert parse_size(' 10G ') == 10 * 1024 ** 3
+
+    def test_lowercase(self):
+        assert parse_size('10g') == 10 * 1024 ** 3
 
 
 # ======================================================================
@@ -1020,6 +1064,146 @@ class TestPhase2Append:
         finally:
             os.chmod(unreadable, 0o644)
 
+    def test_max_chunk_size_splits_into_multiple_chunks(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        f1 = os.path.join(src, 'a.bin')
+        f2 = os.path.join(src, 'b.bin')
+        f3 = os.path.join(src, 'c.bin')
+        block = b'X' * 10000
+        _write_file(f1, block)
+        _write_file(f2, block)
+        _write_file(f3, block)
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=15000)
+        assert ok is True
+        assert added is True
+
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) >= 2
+        total_members = 0
+        for c in chunks:
+            members = _tar_members(os.path.join(tar_cache, c))
+            total_members += len(members)
+        assert total_members == 3
+
+    def test_max_chunk_size_single_file_exceeds_limit(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        big = os.path.join(src, 'big.bin')
+        small = os.path.join(src, 'small.bin')
+        _write_file(big, b'X' * 50000)
+        _write_file(small, b'Y' * 100)
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=10000)
+        assert ok is True
+        assert added is True
+
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) == 2
+
+    def test_max_chunk_size_all_fit_in_one(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        _write_file(os.path.join(src, 'a.txt'), 'aaa')
+        _write_file(os.path.join(src, 'b.txt'), 'bbb')
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=1024 ** 3)
+        assert ok is True
+        assert added is True
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) == 1
+
+    def test_max_chunk_size_none_is_unlimited(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        for i in range(20):
+            _write_file(os.path.join(src, f'f{i:04d}.bin'), b'X' * 5000)
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=None)
+        assert ok is True
+        assert added is True
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) == 1
+
+    def test_max_chunk_size_zero_no_split(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        _write_file(os.path.join(src, 'a.txt'), 'aaa')
+        _write_file(os.path.join(src, 'b.txt'), 'bbb')
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=0)
+        assert ok is True
+        assert added is True
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) == 1
+
+    def test_max_chunk_size_with_symlinks(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        _write_file(os.path.join(src, 'target.txt'), 'data')
+        _symlink('target.txt', os.path.join(src, 'link1'))
+        _symlink('target.txt', os.path.join(src, 'link2'))
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=1)
+        assert ok is True
+        assert added is True
+
+    def test_max_chunk_size_timeout_saves_partial_chunk(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        _write_file(os.path.join(src, 'a.bin'), b'X' * 10000)
+        _write_file(os.path.join(src, 'b.bin'), b'Y' * 10000)
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], 0,
+                                   time.monotonic(), max_chunk_size=5000)
+        assert ok is False
+        chunks = sorted(
+            [f for f in os.listdir(tar_cache) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) <= 1
+
+    def test_max_chunk_size_chunks_are_verifiable(self, tmp_path, tar_cache, trash_dir):
+        src = os.path.join(tmp_path, 'input')
+        f1 = os.path.join(src, 'a.bin')
+        f2 = os.path.join(src, 'b.bin')
+        f3 = os.path.join(src, 'c.bin')
+        content = b'X' * 8192
+        _write_file(f1, content)
+        _write_file(f2, content)
+        _write_file(f3, content)
+
+        ok, added = phase2_append(tar_cache, trash_dir, [src], None,
+                                   time.monotonic(), max_chunk_size=10000)
+        assert ok is True
+        assert added is True
+
+        ok_verify = phase1_verify(tar_cache, trash_dir, [src], None, time.monotonic())
+        assert ok_verify is True
+        assert not os.path.exists(f1)
+        assert not os.path.exists(f2)
+        assert not os.path.exists(f3)
+
+        rel = src.lstrip('/')
+        assert os.path.isfile(os.path.join(trash_dir, rel, 'a.bin'))
+        assert os.path.isfile(os.path.join(trash_dir, rel, 'b.bin'))
+        assert os.path.isfile(os.path.join(trash_dir, rel, 'c.bin'))
+
 
 # ======================================================================
 # main (integration via function call)
@@ -1510,6 +1694,70 @@ class TestSubprocessIntegration:
         assert os.path.isfile(os.path.join(trash, rel, 'f.txt'))
         assert os.path.isfile(os.path.join(trash, rel, 'f.txt.1'))
         assert not os.path.exists(os.path.join(src, 'f.txt'))
+
+    def test_max_chunk_size_cli_splits(self, tmp_path):
+        tar = os.path.join(tmp_path, 'tar')
+        trash = os.path.join(tmp_path, 'trash')
+        src = os.path.join(tmp_path, 'input')
+        os.makedirs(src)
+
+        block = b'X' * 50000
+        _write_file(os.path.join(src, 'a.bin'), block)
+        _write_file(os.path.join(src, 'b.bin'), block)
+        _write_file(os.path.join(src, 'c.bin'), block)
+
+        r = self._run('-f', tar, '-t', trash, '--max-chunk-size', '60K', src)
+        assert r.returncode == 3
+        chunks = sorted(
+            [f for f in os.listdir(tar) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) >= 3
+
+    def test_max_chunk_size_cli_single_chunk(self, tmp_path):
+        tar = os.path.join(tmp_path, 'tar')
+        trash = os.path.join(tmp_path, 'trash')
+        src = os.path.join(tmp_path, 'input')
+        os.makedirs(src)
+
+        _write_file(os.path.join(src, 'a.txt'), 'aaa')
+        _write_file(os.path.join(src, 'b.txt'), 'bbb')
+
+        r = self._run('-f', tar, '-t', trash, '--max-chunk-size', '1G', src)
+        assert r.returncode == 3
+        chunks = sorted(
+            [f for f in os.listdir(tar) if CHUNK_RE.match(f)],
+            key=lambda x: int(CHUNK_RE.match(x).group(1)),
+        )
+        assert len(chunks) == 1
+
+    def test_max_chunk_size_cli_idempotent(self, tmp_path):
+        tar = os.path.join(tmp_path, 'tar')
+        trash = os.path.join(tmp_path, 'trash')
+        src = os.path.join(tmp_path, 'input')
+        os.makedirs(src)
+
+        block = b'Z' * 20000
+        _write_file(os.path.join(src, 'a.bin'), block)
+        _write_file(os.path.join(src, 'b.bin'), block)
+
+        r1 = self._run('-f', tar, '-t', trash, '--max-chunk-size', '15K', src)
+        assert r1.returncode == 3
+        r2 = self._run('-f', tar, '-t', trash, '--max-chunk-size', '15K', src)
+        assert r2.returncode == 0
+
+    def test_max_chunk_size_cli_with_timeout(self, tmp_path):
+        tar = os.path.join(tmp_path, 'tar')
+        trash = os.path.join(tmp_path, 'trash')
+        src = os.path.join(tmp_path, 'input')
+        os.makedirs(src)
+
+        _write_file(os.path.join(src, 'a.bin'), b'X' * 50000)
+        _write_file(os.path.join(src, 'b.bin'), b'Y' * 50000)
+
+        r = self._run('-f', tar, '-t', trash, '--max-chunk-size', '10K',
+                       '--timeout', '60', src)
+        assert r.returncode == 3
 
 
 # ======================================================================

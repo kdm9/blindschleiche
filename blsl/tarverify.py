@@ -24,6 +24,19 @@ CHUNK_RE = re.compile(r'^chunk_(\d+)\.tar$')
 CHUNK_FMT = 'chunk_{:04d}.tar'
 COPY_BUFSIZE = 64 * 1024
 PAX_FORMAT = tarfile.PAX_FORMAT
+SIZE_SUFFIXES = {
+    'K': 1024,
+    'M': 1024 ** 2,
+    'G': 1024 ** 3,
+    'T': 1024 ** 4,
+}
+
+
+def parse_size(s):
+    s = s.strip().upper()
+    if s[-1] in SIZE_SUFFIXES:
+        return int(float(s[:-1]) * SIZE_SUFFIXES[s[-1]])
+    return int(s)
 
 
 def parse_args(argv=None):
@@ -41,6 +54,11 @@ def parse_args(argv=None):
     parser.add_argument(
         '--timeout', type=float, metavar='SECS',
         help='Exit with code 2 after this many seconds'
+    )
+    parser.add_argument(
+        '--max-chunk-size', type=parse_size, metavar='SIZE',
+        help='Maximum size per tar chunk (e.g. 10G, 500M, 1T). '
+             'Files larger than this get their own chunk.'
     )
     parser.add_argument(
         'input', nargs='+',
@@ -197,7 +215,8 @@ def phase1_verify(tar_dir, trash_dir, input_dirs, timeout, start_time):
     return True
 
 
-def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
+def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time,
+                  max_chunk_size=None):
     excluded_real = set()
     for d in (trash_dir, tar_dir):
         try:
@@ -206,16 +225,23 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
             pass
 
     chunk_num = next_chunk_number(tar_dir)
-    chunk_path = os.path.join(tar_dir, CHUNK_FMT.format(chunk_num))
     os.makedirs(tar_dir, exist_ok=True)
 
-    fd, tmp_path = tempfile.mkstemp(dir=tar_dir, prefix='.tmp_chunk_', suffix='.tar')
-    os.close(fd)
-
     any_added = False
-    tf = None
+    current_size = 0
+    tf, tmp_path = _open_temp_tar(tar_dir)
+
+    def _split_if_needed(file_size):
+        nonlocal tf, tmp_path, chunk_num, current_size
+        if not max_chunk_size:
+            return
+        if current_size > 0 and current_size + file_size + 512 > max_chunk_size:
+            _flush_chunk(tf, tmp_path, current_size, tar_dir, chunk_num)
+            chunk_num += 1
+            current_size = 0
+            tf, tmp_path = _open_temp_tar(tar_dir)
+
     try:
-        tf = tarfile.open(tmp_path, 'w', format=PAX_FORMAT)
         for input_dir in input_dirs:
             if not os.path.isdir(input_dir):
                 continue
@@ -230,31 +256,53 @@ def phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time):
                         try:
                             tf.add(full_d, arcname=arcname, recursive=False)
                             any_added = True
+                            current_size += 512
                             print("ADD", arcname)
                         except (OSError, tarfile.TarError):
                             pass
 
                 for f in filenames:
                     if timeout_exceeded(timeout, start_time):
-                        return (False, False)
+                        _flush_chunk(tf, tmp_path, current_size, tar_dir,
+                                     chunk_num)
+                        return (False, any_added)
                     full_f = os.path.join(dirpath, f)
                     arcname = full_f.lstrip('/')
                     try:
                         if os.path.islink(full_f) or os.path.isfile(full_f):
+                            file_size = os.path.getsize(full_f) if os.path.isfile(full_f) else 0
+                            _split_if_needed(file_size)
                             tf.add(full_f, arcname=arcname)
                             any_added = True
+                            current_size += file_size + 512
                             print("ADD", arcname)
                     except (OSError, tarfile.TarError):
                         pass
     finally:
-        if tf is not None:
-            tf.close()
-        if any_added:
-            os.rename(tmp_path, chunk_path)
-        else:
-            os.unlink(tmp_path)
+        _flush_chunk(tf, tmp_path, current_size, tar_dir, chunk_num)
 
     return (True, any_added)
+
+
+def _open_temp_tar(tar_dir):
+    fd, tmp_path = tempfile.mkstemp(dir=tar_dir, prefix='.tmp_chunk_',
+                                     suffix='.tar')
+    os.close(fd)
+    tf = tarfile.open(tmp_path, 'w', format=PAX_FORMAT)
+    return tf, tmp_path
+
+
+def _flush_chunk(tf, tmp_path, current_size, tar_dir, chunk_num):
+    if tf is not None:
+        tf.close()
+    if current_size > 0:
+        final_path = os.path.join(tar_dir, CHUNK_FMT.format(chunk_num))
+        os.rename(tmp_path, final_path)
+    else:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
 
 
 def main(argv=None):
@@ -296,7 +344,8 @@ def main(argv=None):
     if not ok1:
         sys.exit(2)
 
-    ok2, any_added = phase2_append(tar_dir, trash_dir, input_dirs, timeout, start_time)
+    ok2, any_added = phase2_append(tar_dir, trash_dir, input_dirs, timeout,
+                                    start_time, args.max_chunk_size)
     if not ok2:
         sys.exit(2)
     if any_added:
