@@ -32,13 +32,14 @@ def parallel_regions(vcf, chunks=10):
             yield f"{cname}:{s:09d}-{e:09d}"
 
 
-def one_chunk(vcf, chunk, temp_prefix, filterarg="", pipeline="", index=True):
+def one_chunk(vcf, chunk, temp_prefix, filterarg="", pipeline="", index=True, compress=None):
+    compress=compress or "1"
     ofile = f"{temp_prefix}{chunk}.bcf"
     cmd=f"bcftools view -r {chunk} --regions-overlap 0 {filterarg} -Ou {vcf}"
     if pipeline:
         cmd = f"{cmd} | {pipeline}"
     if index:
-        cmd = f"{cmd} | bcftools view -Ob0 --write-index -o {ofile}"
+        cmd = f"{cmd} | bcftools view -Ob{compress} --write-index -o {ofile}"
     cmd = f"({cmd}) >{ofile} 2>{ofile}.log"
     subprocess.run(cmd, shell=True, check=True)
     return ofile
@@ -58,21 +59,22 @@ def chunkwise_pipeline(args):
                 regions.add(f"{chrom}:{start0+1}-{end}")
             regions = list(sorted(regions))
         for region in regions:
-            jobs.append(exc.submit(one_chunk, args.vcf, region, args.temp_prefix, filterarg=args.filter, pipeline=args.commands, index=not args.merge_with_cat))
+            jobs.append(exc.submit(one_chunk, args.vcf, region, args.temp_prefix, filterarg=args.filter, pipeline=args.commands, index=not args.merge_with_cat, compress=args.compression))
         for job in tqdm(as_completed(jobs), total=len(jobs), unit="chunk", desc="chunkwise variant pipeline"):
             ofile = job.result()
             filestomerge.append(ofile)
     return filestomerge
 
 
-def merge_one(files, prefix, threads=1, merge_type="fast"):
+def merge_one(files, prefix, threads=1, merge_type="fast", compress=None):
+    compress = compress or "1"
     fofn = f"{prefix}fofn.txt"
     output = f"{prefix}output.bcf"
     with open(fofn, "w") as fh:
         for file in natsorted(files):
             print(file, file=fh)
     merge = "--allow-overlaps --rm-dup all" if merge_type == "slow" else ""
-    cmd = f"(bcftools concat --file-list {fofn} {merge} --threads {threads} -Ob0 --write-index -o {output}) >{output}.log 2>&1"
+    cmd = f"(bcftools concat --file-list {fofn} {merge} --threads {threads} -Ob{compress} --write-index -o {output}) >{output}.log 2>&1"
     try:
         subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError:
@@ -99,7 +101,7 @@ def merge_results(args, filestomerge):
         with ProcessPoolExecutor(args.threads) as exc:
             jobs = []
             for i, files in enumerate(groups):
-                jobs.append(exc.submit(merge_one, files, f"{args.temp_prefix}merge_group_{i:09d}_", args.merge_type))
+                jobs.append(exc.submit(merge_one, files, f"{args.temp_prefix}merge_group_{i:09d}_", args.merge_type, compress=args.compression))
             for job in tqdm(as_completed(jobs), total=len(jobs), unit="group"):
                 ofile = job.result()
                 final_merge.append(ofile)
@@ -133,6 +135,8 @@ def main(argv=None):
             help="Use slow bcftools merging (with --allow-overlaps and --remove-duplicates)")
     ap.add_argument("-f", "--filter", default="", type=str,
             help="bcftools view arguments for variant filtering")
+    ap.add_argument("-l", "--compression", type=str,
+            help="Compression level of temp files")
     ap.add_argument("-C", "--chunks", type=int,
             help="Number of chunks each chromosome is broken into. Default: 10*--threads")
     ap.add_argument("-c", "--commands", default="", type=str,
